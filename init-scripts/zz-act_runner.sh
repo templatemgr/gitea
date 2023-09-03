@@ -137,14 +137,14 @@ __file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name" && root_us
 __file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && root_user_pass="$(<"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # port which service is listening on
-SERVICE_PORT="80"
+SERVICE_PORT="${GITEA_PORT:-80}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User to use to launch service - IE: postgres
 RUNAS_USER="root" # normally root
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User and group in which the service switches to - IE: nginx,apache,mysql,postgres
-SERVICE_USER="root"  # execute command as another user
-SERVICE_GROUP="root" # Set the service group
+SERVICE_USER="gitea"  # execute command as another user
+SERVICE_GROUP="gitea" # Set the service group
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set user and group ID
 SERVICE_UID="0" # set the user id
@@ -152,7 +152,7 @@ SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
 EXEC_CMD_BIN='act_runner' # command to execute
-EXEC_CMD_ARGS=''          # command arguments
+EXEC_CMD_ARGS='daemon'    # command arguments
 EXEC_PRE_SCRIPT=''        # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
@@ -189,7 +189,6 @@ CMD_ENV=""
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Per Application Variables or imports
 RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-}"
-SERVICE_PORT="${GITEA_PORT:-$SERVICE_PORT}"
 HOSTNAME="${GITEA_SERVER:-${DOMAINNAME:-$HOSTNAME}}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Custom prerun functions - IE setup WWW_ROOT_DIR
@@ -394,7 +393,6 @@ __create_service_env() {
 #ENV_CONF_DIR="${ENV_CONF_DIR:-$CONF_DIR}"                           # set default config dir
 #ENV_DATABASE_DIR="${ENV_DATABASE_DIR:-$DATABASE_DIR}"               # set database dir
 #ENV_SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"               # execute command as another user
-#ENV_SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"               # port which service is listening on
 #ENV_EXEC_PRE_SCRIPT="${ENV_EXEC_PRE_SCRIPT:-$EXEC_PRE_SCRIPT}"      # execute before commands
 #ENV_EXEC_CMD_BIN="${ENV_EXEC_CMD_BIN:-$EXEC_CMD_BIN}"               # command to execute
 #ENV_EXEC_CMD_ARGS="${ENV_EXEC_CMD_ARGS:-$EXEC_CMD_ARGS}"            # command arguments
@@ -531,7 +529,6 @@ SERVICE_EXIT_CODE=0                                           # default exit cod
 SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"             # execute command as another user
 SERVICE_UID="${ENV_UID:-${ENV_SERVICE_UID:-$SERVICE_UID}}"    # Set UID
 SERVICE_GID="${ENV_GID:-${ENV_SERVICE_GID:-$SERVICE_GID}}"    # Set GID
-SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"             # port which service is listening on
 RUNAS_USER="${ENV_RUNAS_USER:-$RUNAS_USER}"                   # normally root
 WORK_DIR="${ENV_WORK_DIR:-$WORK_DIR}"                         # change to directory
 WWW_ROOT_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"             # set default web dir

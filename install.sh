@@ -71,7 +71,7 @@ mkdir -p "$CONFIG_DIR" "$INIT_DIR"
 find "$TMP_DIR/" -iname '.gitkeep' -exec rm -f {} \;
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # custom pre execution commands
-
+rm -Rf /etc/nginx/*
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_dir_list="$(__find_directory_relative "$TMP_DIR/config" || false)"
 if [ -n "$get_dir_list" ]; then
@@ -160,7 +160,7 @@ if [ -x "$GITEA_BIN_FILE" ]; then
   fi
   if ! grep -q 'gitea:' /etc/passwd; then
     echo "Adding user: gitea"
-    adduser -S -H -D -h /data/gitea -s /bin/bash -u 1000 -G gitea gitea && echo "gitea:*" | chpasswd -e
+    adduser -S -H -D -h /home/gitea -s /bin/bash -u 1000 -G gitea gitea && echo "gitea:*" | chpasswd -e
   fi
   if grep -qs "docker" "/etc/group"; then
     usermod -aG docker gitea

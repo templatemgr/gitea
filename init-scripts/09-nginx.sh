@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202309021212-git
+##@Version           :  202309031331-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
-# @@License          :  WTFPL
-# @@ReadME           :  zz-gitea.sh --help
+# @@License          :  LICENSE.md
+# @@ReadME           :  09-nginx.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Saturday, Sep 02, 2023 12:12 EDT
-# @@File             :  zz-gitea.sh
+# @@Created          :  Sunday, Sep 03, 2023 13:31 EDT
+# @@File             :  09-nginx.sh
 # @@Description      :
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -28,9 +28,9 @@
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
 [ "$DEBUGGER" = "on" ] && echo "Enabling debugging" && set -o pipefail -x$DEBUGGER_OPTIONS || set -o pipefail
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-printf '%s\n' "# - - - Initializing gitea - - - #"
+printf '%s\n' "# - - - Initializing nginx - - - #"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICE_NAME="gitea"
+SERVICE_NAME="nginx"
 SCRIPT_NAME="$(basename "$0" 2>/dev/null)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 export PATH="/usr/local/etc/docker/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"
@@ -65,7 +65,7 @@ __run_pre_execute_checks() {
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Reset environment before executing service
-RESET_ENV="no"
+RESET_ENV="yes"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Show message before execute
 PRE_EXEC_MESSAGE=""
@@ -73,21 +73,21 @@ PRE_EXEC_MESSAGE=""
 # Set the database root dir
 DATABASE_BASE_DIR="${DATABASE_BASE_DIR:-/data/db}"
 # set the database directory
-DATABASE_DIR="${DATABASE_DIR_GITEA:-/data/db/sqlite}"
+DATABASE_DIR="${DATABASE_DIR_NGINX:-/data/db/sqlite}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set webroot
 WWW_ROOT_DIR="/usr/share/httpd/default"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Default predefined variables
-DATA_DIR="/data/gitea"   # set data directory
-CONF_DIR="/config/gitea" # set config directory
+DATA_DIR="/data/nginx"   # set data directory
+CONF_DIR="/config/nginx" # set config directory
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # set the containers etc directory
-ETC_DIR="/etc/gitea"
+ETC_DIR="/etc/nginx"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TMP_DIR="/tmp/gitea"
-RUN_DIR="/run/gitea"       # set scripts pid dir
-LOG_DIR="/data/logs/gitea" # set log directory
+TMP_DIR="/tmp/nginx"
+RUN_DIR="/run/nginx"       # set scripts pid dir
+LOG_DIR="/data/logs/nginx" # set log directory
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set the working dir
 WORK_DIR="" # set working directory
@@ -97,12 +97,12 @@ ROOT_FILE_PREFIX="/config/secure/auth/root" # directory to save username/passwor
 USER_FILE_PREFIX="/config/secure/auth/user" # directory to save username/password for normal user
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # root/admin user info password/random]
-root_user_name="${GITEA_ROOT_USER_NAME:-}" # root user name
-root_user_pass="${GITEA_ROOT_PASS_WORD:-}" # root user password
+root_user_name="${NGINX_ROOT_USER_NAME:-}" # root user name
+root_user_pass="${NGINX_ROOT_PASS_WORD:-}" # root user password
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Normal user info [password/random]
-user_name="${GITEA_USER_NAME:-}"      # normal user name
-user_pass="${GITEA_USER_PASS_WORD:-}" # normal user password
+user_name="${NGINX_USER_NAME:-}"      # normal user name
+user_pass="${NGINX_USER_PASS_WORD:-}" # normal user password
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Overwrite variables from files
 __file_exists_with_content "${USER_FILE_PREFIX}/${SERVICE_NAME}_name" && user_name="$(<"${USER_FILE_PREFIX}/${SERVICE_NAME}_name")"
@@ -111,64 +111,45 @@ __file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name" && root_us
 __file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && root_user_pass="$(<"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # port which service is listening on
-SERVICE_PORT="8000"
+SERVICE_PORT="80"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User to use to launch service - IE: postgres
 RUNAS_USER="root" # normally root
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User and group in which the service switches to - IE: nginx,apache,mysql,postgres
-SERVICE_USER="gitea"  # execute command as another user
-SERVICE_GROUP="gitea" # Set the service group
+SERVICE_USER="nginx"  # execute command as another user
+SERVICE_GROUP="nginx" # Set the service group
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set user and group ID
 SERVICE_UID="0" # set the user id
 SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
-EXEC_CMD_BIN='gitea'                                                        # command to execute
-EXEC_CMD_ARGS='-port $SERVICE_PORT --config $ETC_DIR/app.ini '              # command arguments
-EXEC_CMD_ARGS+='--custom-path $ETC_DIR/custom --work-path $DATA_DIR/gitea ' # command arguments
+EXEC_CMD_BIN='nginx'                   # command to execute
+EXEC_CMD_ARGS='-c $ETC_DIR/nginx.conf' # command arguments
+EXEC_PRE_SCRIPT=''                     # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
-IS_WEB_SERVER="no"
+IS_WEB_SERVER="yes"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a database server
-IS_DATABASE_SERVICE="yes"
+IS_DATABASE_SERVICE="no"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Load variables from config
-[ -f "$CONF_DIR/env/gitea.sh" ] && . "$CONF_DIR/env/gitea.sh"
+[ -f "$CONF_DIR/env/nginx.script.sh" ] && . "$CONF_DIR/env/nginx.script.sh" # Generated by my dockermgr script
+[ -f "$CONF_DIR/env/nginx.sh" ] && . "$CONF_DIR/env/nginx.sh"               # Overwrite the variabes
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional predefined variables
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional variables
-TZ="${GITEA_TZ:-${TZ:-America/New_York}}"
-SERVICE_PORT="${GITEA_PORT:-$SERVICE_PORT}"
-SERVICE_USER="${GITEA_USER:-$SERVICE_USER}"
-SERVICE_PROTOCOL="${GITEA_PROTO:-$SERVICE_PROTOCOL}"
-EMAIL_RELAY="${GITEA_EMAIL_RELAY:-${EMAIL_RELAY:-localhost}}"
-SERVER_SITE_TITLE="${GITEA_NAME:-${SERVER_SITE_TITLE:-SelfHosted GIT Server}}"
-SERVER_ADMIN="${GITEA_ADMIN:-${SERVER_ADMIN:-gitea@${DOMAINNAME:-$GITEA_HOSTNAME}}}"
-GITEA_SERVER="${ENV_GITEA_SERVER:-$GITEA_SERVER}"
-GITEA_EMAIL_CONFIRM="${GITEA_EMAIL_CONFIRM:-false}"
-GITEA_SQL_DB_HOST="${GITEA_SQL_DB_HOST:-localhost}"
-GITEA_SQL_USER="${ENV_GITEA_SQL_USER:-$GITEA_SQL_USER}"
-GITEA_SQL_PASS="${ENV_GITEA_SQL_PASS:-$GITEA_SQL_PASS}"
-GITEA_DB_TYPE="${ENV_GITEA_DB_TYPE:-${GITEA_DB_TYPE:-sqlite3}}"
-HOSTNAME="${GITEA_SERVER:-${GITEA_HOSTNAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}}"
-GITEA_LFS_JWT_SECRET="${GITEA_LFS_JWT_SECRET:-$($EXEC_CMD_BIN generate secret LFS_JWT_SECRET)}"
-GITEA_INTERNAL_TOKEN="${GITEA_INTERNAL_TOKEN:-$($EXEC_CMD_BIN generate secret INTERNAL_TOKEN)}"
-[ "$GITEA_EMAIL_CONFIRM" = "yes" ] && GITEA_EMAIL_CONFIRM="true"
-export CUSTOM_PATH="$ETC_DIR"
-export WORK_DIR="$DATA_DIR/gitea"
-export GITEA_WORK_DIR="$WORK_DIR"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
 ADD_APPLICATION_FILES=""
 ADD_APPLICATION_DIRS=""
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-APPLICATION_FILES="$LOG_DIR/gitea.log"
+APPLICATION_FILES="$LOG_DIR/nginx.log"
 APPLICATION_DIRS="$RUN_DIR $ETC_DIR $CONF_DIR $LOG_DIR $TMP_DIR"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional config dirs - will be Copied to /etc/$name
@@ -194,13 +175,11 @@ __update_conf_files() {
   # CD into temp to bybass any permission errors
   cd /tmp || false # lets keep shellcheck happy by adding false
 
-  mkdir -p "$ETC_DIR/custom" "$DATA_DIR"
-
   # delete files
   #__rm ""
 
   # execute if directory is empty
-  __is_dir_empty "$DATABASE_DIR" && mkdir -p "$DATABASE_DIR"
+  #__is_dir_empty "" && true || false
 
   # Initialize templates
   if [ ! -d "$CONF_DIR" ] || __is_dir_empty "$CONF_DIR"; then
@@ -213,25 +192,12 @@ __update_conf_files() {
   fi
 
   # define actions
-  if [ -n "$HOSTNAME" ] && echo "$HOSTNAME" | grep -q 'http.*://'; then
-    SERVICE_PROTOCOL="${SERVICE_PROTOCOL:-${HOSTNAME//:\/\/*/}}"
-  fi
+
   # replace variables
-  __replace "REPLACE_GITEA_EMAIL_CONFIRM" "$GITEA_EMAIL_CONFIRM" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_INTERNAL_TOKEN" "$GITEA_INTERNAL_TOKEN" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_LFS_JWT_SECRET" "$GITEA_LFS_JWT_SECRET" "$ETC_DIR/app.ini"
-  # replace variables
-  __replace "REPLACE_GITEA_EMAIL_CONFIRM" "$GITEA_EMAIL_CONFIRM" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_INTERNAL_TOKEN" "$GITEA_INTERNAL_TOKEN" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_LFS_JWT_SECRET" "$GITEA_LFS_JWT_SECRET" "$ETC_DIR/app.ini"
+  # __replace "" "" "$CONF_DIR/nginx.conf"
   # replace variables recursively
   #  __find_replace "" "" "$CONF_DIR"
-  # database settings
-  __replace "REPLACE_DB_TYPE" "$GITEA_DB_TYPE" "$ETC_DIR/app.ini"
-  [ -n "$GITEA_SQL_DB" ] && __replace "REPLACE_SQL_DB" "$GITEA_SQL_DB" "$ETC_DIR/app.ini"
-  [ -n "$GITEA_SQL_USER" ] && __replace "REPLACE_SQL_USER" "$GITEA_SQL_USER" "$ETC_DIR/app.ini"
-  [ -n "$GITEA_SQL_PASS" ] && __replace "REPLACE_SQL_PASS" "$GITEA_SQL_PASS" "$ETC_DIR/app.ini"
-  [ -n "$GITEA_SQL_DB_HOST" ] && __replace "REPLACE_SQL_HOST" "$GITEA_SQL_DB_HOST" "$ETC_DIR/app.ini"
+
   # custom commands
 
   # unset unneeded variables
@@ -398,14 +364,14 @@ __create_service_env() {
 #ENV_EXEC_CMD_NAME="$(basename "$EXEC_CMD_BIN")"                     # set the binary name
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # root/admin user info [password/random]
-#ENV_ROOT_USER_NAME="${ENV_ROOT_USER_NAME:-$GITEA_ROOT_USER_NAME}"   # root user name
-#ENV_ROOT_USER_PASS="${ENV_ROOT_USER_NAME:-$GITEA_ROOT_PASS_WORD}"   # root user password
+#ENV_ROOT_USER_NAME="${ENV_ROOT_USER_NAME:-$NGINX_ROOT_USER_NAME}"   # root user name
+#ENV_ROOT_USER_PASS="${ENV_ROOT_USER_NAME:-$NGINX_ROOT_PASS_WORD}"   # root user password
 #root_user_name="${ENV_ROOT_USER_NAME:-$root_user_name}"                              #
 #root_user_pass="${ENV_ROOT_USER_PASS:-$root_user_pass}"                              #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #Normal user info [password/random]
-#ENV_USER_NAME="${ENV_USER_NAME:-$GITEA_USER_NAME}"                  #
-#ENV_USER_PASS="${ENV_USER_PASS:-$GITEA_USER_PASS_WORD}"             #
+#ENV_USER_NAME="${ENV_USER_NAME:-$NGINX_USER_NAME}"                  #
+#ENV_USER_PASS="${ENV_USER_PASS:-$NGINX_USER_PASS_WORD}"             #
 #user_name="${ENV_USER_NAME:-$user_name}"                                             # normal user name
 #user_pass="${ENV_USER_PASS:-$user_pass}"                                             # normal user password
 
