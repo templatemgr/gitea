@@ -149,7 +149,7 @@ ACT_URL="$(curl -q -LSsf -X 'GET' "https://gitea.com/api/v1/repos/gitea/act_runn
 echo "Dowloading from $API_URL"
 curl -q -LSsf "$API_URL" -o "$GITEA_BIN_FILE" && chmod +x "$GITEA_BIN_FILE"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-echo "Downloading act from $ACT_URL"
+echo "Downloading act_runner from $ACT_URL"
 curl -q -LSsf "$ACT_URL" -o "$ACT_BIN_FILE" && chmod +x "$ACT_BIN_FILE"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -x "$GITEA_BIN_FILE" ]; then
