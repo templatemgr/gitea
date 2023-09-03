@@ -217,13 +217,9 @@ __update_conf_files() {
     SERVICE_PROTOCOL="${SERVICE_PROTOCOL:-${HOSTNAME//:\/\/*/}}"
   fi
   # replace variables
-  __replace "REPLACE_GITEA_EMAIL_CONFIRM" "$GITEA_EMAIL_CONFIRM" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_INTERNAL_TOKEN" "$GITEA_INTERNAL_TOKEN" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_LFS_JWT_SECRET" "$GITEA_LFS_JWT_SECRET" "$ETC_DIR/app.ini"
-  # replace variables
-  __replace "REPLACE_GITEA_EMAIL_CONFIRM" "$GITEA_EMAIL_CONFIRM" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_INTERNAL_TOKEN" "$GITEA_INTERNAL_TOKEN" "$ETC_DIR/app.ini"
-  __replace "REPLACE_GITEA_LFS_JWT_SECRET" "$GITEA_LFS_JWT_SECRET" "$ETC_DIR/app.ini"
+  sed "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$ETC_DIR/app.ini"
+  sed "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$ETC_DIR/app.ini"
+  sed "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$ETC_DIR/app.ini"
   # replace variables recursively
   #  __find_replace "" "" "$CONF_DIR"
   # database settings
