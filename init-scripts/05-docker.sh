@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202309030232-git
+##@Version           :  202309031844-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
-# @@License          :  WTFPL
+# @@License          :  LICENSE.md
 # @@ReadME           :  05-docker.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Sunday, Sep 03, 2023 02:32 EDT
+# @@Created          :  Sunday, Sep 03, 2023 18:44 EDT
 # @@File             :  05-docker.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -117,8 +117,8 @@ SERVICE_PORT=""
 RUNAS_USER="root" # normally root
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User and group in which the service switches to - IE: nginx,apache,mysql,postgres
-SERVICE_USER="gitea"  # execute command as another user
-SERVICE_GROUP="gitea" # Set the service group
+SERVICE_USER="docker"  # execute command as another user
+SERVICE_GROUP="docker" # Set the service group
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set user and group ID
 SERVICE_UID="0" # set the user id
@@ -220,11 +220,16 @@ __pre_execute() {
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # create user if needed
   __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-3000}" "${SERVICE_GID:-3000}"
-
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Modify user if needed
   __set_user_group_id $SERVICE_USER ${SERVICE_UID:-3000} ${SERVICE_GID:-3000}
-
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # Set permissions
+  __fix_permissions "$SERVICE_USER" "$SERVICE_GROUP"
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # Create directories
+  __setup_directories
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Run Custom command
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -233,63 +238,7 @@ __pre_execute() {
     __initialize_system_etc "$config_2_etc" |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
   done
   unset config_2_etc ADDITIONAL_CONFIG_DIRS
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  # Setup WWW_ROOT_DIR
-  if [ "$IS_WEB_SERVER" = "yes" ]; then
-    APPLICATION_DIRS="$APPLICATION_DIRS $WWW_ROOT_DIR"
-    __initialize_www_root
-    (echo "Creating directory $WWW_ROOT_DIR with permissions 755" && mkdir -p "$WWW_ROOT_DIR" && find "$WWW_ROOT_DIR" -type d -exec chmod -f 755 {} \;) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-  fi
 
-  # Setup DATABASE_DIR
-  if [ "$IS_DATABASE_SERVICE" = "yes" ]; then
-    APPLICATION_DIRS="$APPLICATION_DIRS $DATABASE_DIR"
-    if __is_dir_empty "$DATABASE_DIR" || [ ! -d "$DATABASE_DIR" ]; then
-      (echo "Creating directory $DATABASE_DIR with permissions 777" && mkdir -p "$DATABASE_DIR" && chmod -f 777 "$DATABASE_DIR") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-    fi
-  fi
-
-  # create default directories
-  for filedirs in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
-    if [ -n "$filedirs" ] && [ ! -d "$filedirs" ]; then
-      (
-        echo "Creating directory $filedirs with permissions 777"
-        mkdir -p "$filedirs" && chmod -f 777 "$filedirs"
-      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-    fi
-  done
-  # create default files
-  for application_files in $ADD_APPLICATION_FILES $APPLICATION_FILES; do
-    if [ -n "$application_files" ] && [ ! -e "$application_files" ]; then
-      (
-        echo "Creating file $application_files with permissions 777"
-        touch "$application_files" && chmod -Rf 777 "$application_files"
-      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-    fi
-  done
-
-  # set user on files/folders
-  change_user="${SERVICE_USER:-root}"
-  change_group="${SERVICE_GROUP:-$change_user}"
-  [ -n "$RUNAS_USER" ] && [ "$RUNAS_USER" != "root" ] && change_user="$RUNAS_USER" && change_group="$change_user"
-  if [ -n "$change_user" ] && [ "$change_user" != "root" ]; then
-    if grep -sq "^$change_user:" "/etc/passwd"; then
-      for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
-        if [ -n "$permissions" ] && [ -e "$permissions" ]; then
-          (chown -Rf $change_user:$change_group "$permissions" && echo "changed ownership on $permissions to user:$change_user and group:$change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-        fi
-      done
-    fi
-  fi
-  if [ -n "$change_group" ] && [ "$change_group" != "root" ]; then
-    if grep -sq "^$change_group:" "/etc/group"; then
-      for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
-        if [ -n "$permissions" ] && [ -e "$permissions" ]; then
-          (chgrp -Rf $change_group "$permissions" && echo "changed group ownership on $permissions to group $change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-        fi
-      done
-    fi
-  fi
   unset change_user change_user
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Replace the applications user and group
@@ -358,7 +307,6 @@ __create_service_env() {
 #ENV_CONF_DIR="${ENV_CONF_DIR:-$CONF_DIR}"                           # set default config dir
 #ENV_DATABASE_DIR="${ENV_DATABASE_DIR:-$DATABASE_DIR}"               # set database dir
 #ENV_SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"               # execute command as another user
-#ENV_SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"               # port which service is listening on
 #ENV_EXEC_PRE_SCRIPT="${ENV_EXEC_PRE_SCRIPT:-$EXEC_PRE_SCRIPT}"      # execute before commands
 #ENV_EXEC_CMD_BIN="${ENV_EXEC_CMD_BIN:-$EXEC_CMD_BIN}"               # command to execute
 #ENV_EXEC_CMD_ARGS="${ENV_EXEC_CMD_ARGS:-$EXEC_CMD_ARGS}"            # command arguments
@@ -495,7 +443,6 @@ SERVICE_EXIT_CODE=0                                           # default exit cod
 SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"             # execute command as another user
 SERVICE_UID="${ENV_UID:-${ENV_SERVICE_UID:-$SERVICE_UID}}"    # Set UID
 SERVICE_GID="${ENV_GID:-${ENV_SERVICE_GID:-$SERVICE_GID}}"    # Set GID
-SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"             # port which service is listening on
 RUNAS_USER="${ENV_RUNAS_USER:-$RUNAS_USER}"                   # normally root
 WORK_DIR="${ENV_WORK_DIR:-$WORK_DIR}"                         # change to directory
 WWW_ROOT_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"             # set default web dir

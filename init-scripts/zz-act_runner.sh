@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202309030233-git
+##@Version           :  202309031844-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
-# @@License          :  WTFPL
-# @@ReadME           :  zz-act_runner.sh --help
+# @@License          :  LICENSE.md
+# @@ReadME           :  act_runner.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Sunday, Sep 03, 2023 02:33 EDT
-# @@File             :  zz-act_runner.sh
+# @@Created          :  Sunday, Sep 03, 2023 18:44 EDT
+# @@File             :  act_runner.sh
 # @@Description      :
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -61,25 +61,21 @@ __run_pre_execute_checks() {
     while :; do
       [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
       if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-        echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME:$GITEA_PORT/admin/runners and edit $runner" >&2
+        echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME:$SERVICE_PORT/admin/runners and edit $runner" >&2
       fi
       [ -f "$runner" ] && . "$runner"
       if [ -n "$RUNNER_AUTH_TOKEN" ]; then
         echo "RUNNER_AUTH_TOKEN has been set"
-        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$GITEA_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive &
+        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$SERVICE_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive &
         [ $exitStatus -eq 0 ] && echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid" && exitStatus=0 || exitStatus=1
         break
       else
         sleep 120
       fi
     done
+    echo "$$" >"$RUN_DIR/act_runner.pid"
   done
-  echo "$$" >"$RUN_DIR/act_runner.pid"
-  if [ $exitStatus -ne 0 ]; then
-    echo "The pre-execution check has failed"
-    exit ${exitStatus:-20}
-  fi
-  exitStatus=$?
+  exitStatus="${exitStatus:-$?}"
   if [ $exitStatus -ne 0 ]; then
     echo "The pre-execution check has failed"
     exit ${exitStatus:-20}
@@ -137,7 +133,7 @@ __file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name" && root_us
 __file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && root_user_pass="$(<"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # port which service is listening on
-SERVICE_PORT="${GITEA_PORT:-80}"
+SERVICE_PORT="8000"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User to use to launch service - IE: postgres
 RUNAS_USER="root" # normally root
@@ -207,15 +203,6 @@ __update_conf_files() {
 
   # execute if directory is empty
   #__is_dir_empty "" && true || false
-  if [ ! -f "$CONF_DIR/default.conf" ]; then
-    echo "# Settings for the default gitea runner" >"$CONF_DIR/default.conf"
-    echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/default.conf"
-    echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/default.conf"
-    echo "RUNNER_AUTH_TOKEN=\"${RUNNER_AUTH_TOKEN:-}\"" >>"$CONF_DIR/default.conf"
-    echo "GITEA_HOSTNAME=\"${GITEA_HOSTNAME:-}\"" >>"$CONF_DIR/default.conf"
-  fi
-  # unset unneeded variables
-  unset application_files filedirs
 
   # Initialize templates
   if [ ! -d "$CONF_DIR" ] || __is_dir_empty "$CONF_DIR"; then
@@ -235,6 +222,13 @@ __update_conf_files() {
   #  __find_replace "" "" "$CONF_DIR"
 
   # custom commands
+  if [ ! -f "$CONF_DIR/default.conf" ]; then
+    echo "# Settings for the default gitea runner" >"$CONF_DIR/default.conf"
+    echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/default.conf"
+    echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/default.conf"
+    echo "RUNNER_AUTH_TOKEN=\"${RUNNER_AUTH_TOKEN:-}\"" >>"$CONF_DIR/default.conf"
+    echo "GITEA_HOSTNAME=\"${GITEA_HOSTNAME:-}\"" >>"$CONF_DIR/default.conf"
+  fi
 
   # unset unneeded variables
   unset application_files filedirs
@@ -255,11 +249,16 @@ __pre_execute() {
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # create user if needed
   __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-3000}" "${SERVICE_GID:-3000}"
-
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Modify user if needed
   __set_user_group_id $SERVICE_USER ${SERVICE_UID:-3000} ${SERVICE_GID:-3000}
-
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # Set permissions
+  __fix_permissions "$SERVICE_USER" "$SERVICE_GROUP"
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # Create directories
+  __setup_directories
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Run Custom command
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -268,63 +267,7 @@ __pre_execute() {
     __initialize_system_etc "$config_2_etc" |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
   done
   unset config_2_etc ADDITIONAL_CONFIG_DIRS
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  # Setup WWW_ROOT_DIR
-  if [ "$IS_WEB_SERVER" = "yes" ]; then
-    APPLICATION_DIRS="$APPLICATION_DIRS $WWW_ROOT_DIR"
-    __initialize_www_root
-    (echo "Creating directory $WWW_ROOT_DIR with permissions 755" && mkdir -p "$WWW_ROOT_DIR" && find "$WWW_ROOT_DIR" -type d -exec chmod -f 755 {} \;) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-  fi
 
-  # Setup DATABASE_DIR
-  if [ "$IS_DATABASE_SERVICE" = "yes" ]; then
-    APPLICATION_DIRS="$APPLICATION_DIRS $DATABASE_DIR"
-    if __is_dir_empty "$DATABASE_DIR" || [ ! -d "$DATABASE_DIR" ]; then
-      (echo "Creating directory $DATABASE_DIR with permissions 777" && mkdir -p "$DATABASE_DIR" && chmod -f 777 "$DATABASE_DIR") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-    fi
-  fi
-
-  # create default directories
-  for filedirs in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
-    if [ -n "$filedirs" ] && [ ! -d "$filedirs" ]; then
-      (
-        echo "Creating directory $filedirs with permissions 777"
-        mkdir -p "$filedirs" && chmod -f 777 "$filedirs"
-      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-    fi
-  done
-  # create default files
-  for application_files in $ADD_APPLICATION_FILES $APPLICATION_FILES; do
-    if [ -n "$application_files" ] && [ ! -e "$application_files" ]; then
-      (
-        echo "Creating file $application_files with permissions 777"
-        touch "$application_files" && chmod -Rf 777 "$application_files"
-      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-    fi
-  done
-
-  # set user on files/folders
-  change_user="${SERVICE_USER:-root}"
-  change_group="${SERVICE_GROUP:-$change_user}"
-  [ -n "$RUNAS_USER" ] && [ "$RUNAS_USER" != "root" ] && change_user="$RUNAS_USER" && change_group="$change_user"
-  if [ -n "$change_user" ] && [ "$change_user" != "root" ]; then
-    if grep -sq "^$change_user:" "/etc/passwd"; then
-      for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
-        if [ -n "$permissions" ] && [ -e "$permissions" ]; then
-          (chown -Rf $change_user:$change_group "$permissions" && echo "changed ownership on $permissions to user:$change_user and group:$change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-        fi
-      done
-    fi
-  fi
-  if [ -n "$change_group" ] && [ "$change_group" != "root" ]; then
-    if grep -sq "^$change_group:" "/etc/group"; then
-      for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
-        if [ -n "$permissions" ] && [ -e "$permissions" ]; then
-          (chgrp -Rf $change_group "$permissions" && echo "changed group ownership on $permissions to group $change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
-        fi
-      done
-    fi
-  fi
   unset change_user change_user
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Replace the applications user and group
@@ -393,6 +336,7 @@ __create_service_env() {
 #ENV_CONF_DIR="${ENV_CONF_DIR:-$CONF_DIR}"                           # set default config dir
 #ENV_DATABASE_DIR="${ENV_DATABASE_DIR:-$DATABASE_DIR}"               # set database dir
 #ENV_SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"               # execute command as another user
+#ENV_SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"               # port which service is listening on
 #ENV_EXEC_PRE_SCRIPT="${ENV_EXEC_PRE_SCRIPT:-$EXEC_PRE_SCRIPT}"      # execute before commands
 #ENV_EXEC_CMD_BIN="${ENV_EXEC_CMD_BIN:-$EXEC_CMD_BIN}"               # command to execute
 #ENV_EXEC_CMD_ARGS="${ENV_EXEC_CMD_ARGS:-$EXEC_CMD_ARGS}"            # command arguments
@@ -529,6 +473,7 @@ SERVICE_EXIT_CODE=0                                           # default exit cod
 SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"             # execute command as another user
 SERVICE_UID="${ENV_UID:-${ENV_SERVICE_UID:-$SERVICE_UID}}"    # Set UID
 SERVICE_GID="${ENV_GID:-${ENV_SERVICE_GID:-$SERVICE_GID}}"    # Set GID
+SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"             # port which service is listening on
 RUNAS_USER="${ENV_RUNAS_USER:-$RUNAS_USER}"                   # normally root
 WORK_DIR="${ENV_WORK_DIR:-$WORK_DIR}"                         # change to directory
 WWW_ROOT_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"             # set default web dir
