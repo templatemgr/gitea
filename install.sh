@@ -156,15 +156,16 @@ if [ -x "$GITEA_BIN_FILE" ]; then
   echo "gitea has been installed to: $GITEA_BIN_FILE"
   if ! grep -q 'gitea:' /etc/group; then
     echo "Adding group: gitea"
-    addgroup -g 800 -S gitea
+    addgroup -S -g 1000 git
   fi
   if ! grep -q 'gitea:' /etc/passwd; then
     echo "Adding user: gitea"
-    adduser -u 800 -S -s /bin/bash -g 'Git Version Control' -h "/var/lib/gitea" -D -G gitea gitea
+    adduser -S -H -D -h /data/gitea -s /bin/bash -u 1000 -G gitea gitea && echo "gitea:*" | chpasswd -e
   fi
   if grep -qs "docker" "/etc/group"; then
     usermod -aG docker gitea
   fi
+  [ -d "/etc/sudoers.d" ] && echo "gitea ALL=(ALL)   NOPASSWD: ALL" >"/etc/sudoers.d/gitea"
   exitCode=0
 else
   exitCode=2
