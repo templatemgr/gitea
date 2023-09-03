@@ -90,7 +90,7 @@ RUN_DIR="/run/gitea"       # set scripts pid dir
 LOG_DIR="/data/logs/gitea" # set log directory
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set the working dir
-WORK_DIR="" # set working directory
+WORK_DIR='$DATA_DIR' # set working directory
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Where to save passwords to
 ROOT_FILE_PREFIX="/config/secure/auth/root" # directory to save username/password for root user
@@ -121,13 +121,13 @@ SERVICE_USER="gitea"  # execute command as another user
 SERVICE_GROUP="gitea" # Set the service group
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set user and group ID
-SERVICE_UID="0" # set the user id
-SERVICE_GID="0" # set the group id
+SERVICE_UID="1000" # set the user id
+SERVICE_GID="1000" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
-EXEC_CMD_BIN='gitea'                                                        # command to execute
-EXEC_CMD_ARGS='-port $SERVICE_PORT --config $ETC_DIR/app.ini '              # command arguments
-EXEC_CMD_ARGS+='--custom-path $ETC_DIR/custom --work-path $DATA_DIR/gitea ' # command arguments
+EXEC_CMD_BIN='gitea'                                                  # command to execute
+EXEC_CMD_ARGS='-port $SERVICE_PORT --config $ETC_DIR/app.ini '        # command arguments
+EXEC_CMD_ARGS+='--custom-path $ETC_DIR/custom --work-path $DATA_DIR ' # command arguments
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
@@ -143,8 +143,6 @@ IS_DATABASE_SERVICE="yes"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional variables
 TZ="${GITEA_TZ:-${TZ:-America/New_York}}"
-SERVICE_PORT="${GITEA_PORT:-$SERVICE_PORT}"
-SERVICE_USER="${GITEA_USER:-$SERVICE_USER}"
 SERVICE_PROTOCOL="${GITEA_PROTO:-$SERVICE_PROTOCOL}"
 EMAIL_RELAY="${GITEA_EMAIL_RELAY:-${EMAIL_RELAY:-localhost}}"
 SERVER_SITE_TITLE="${GITEA_NAME:-${SERVER_SITE_TITLE:-SelfHosted GIT Server}}"
@@ -160,9 +158,7 @@ GITEA_LFS_JWT_SECRET="${GITEA_LFS_JWT_SECRET:-$($EXEC_CMD_BIN generate secret LF
 GITEA_INTERNAL_TOKEN="${GITEA_INTERNAL_TOKEN:-$($EXEC_CMD_BIN generate secret INTERNAL_TOKEN)}"
 [ "$GITEA_EMAIL_CONFIRM" = "yes" ] && GITEA_EMAIL_CONFIRM="true"
 export CUSTOM_PATH="$ETC_DIR"
-export WORK_DIR="$DATA_DIR/gitea"
-export GITEA_WORK_DIR="$WORK_DIR"
-
+export WORK_DIR="${GITEA_WORK_DIR:-$WORK_DIR}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
 ADD_APPLICATION_FILES=""
@@ -248,11 +244,11 @@ __pre_execute() {
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # create user if needed
-  __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-3000}" "${SERVICE_GID:-3000}"
+  __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-1000}" "${SERVICE_GID:-1000}"
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Modify user if needed
-  __set_user_group_id $SERVICE_USER ${SERVICE_UID:-3000} ${SERVICE_GID:-3000}
+  __set_user_group_id $SERVICE_USER ${SERVICE_UID:-1000} ${SERVICE_GID:-1000}
 
   # Run Custom command
 
