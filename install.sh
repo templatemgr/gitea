@@ -156,7 +156,7 @@ if [ -x "$GITEA_BIN_FILE" ]; then
   echo "gitea has been installed to: $GITEA_BIN_FILE"
   if ! grep -q 'gitea:' /etc/group; then
     echo "Adding group: gitea"
-    addgroup -S -g 1000 git
+    addgroup -S -g 1000 gitea
   fi
   if ! grep -q 'gitea:' /etc/passwd; then
     echo "Adding user: gitea"
