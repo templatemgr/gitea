@@ -129,7 +129,7 @@ ARCH="$(uname -m | tr '[:upper]' '[:lower]')"
 GITEA_BIN_FILE="/usr/local/bin/gitea"
 GITEA_VERSION="${GITEA_VERSION:-latest}"
 ACT_BIN_FILE="/usr/local/bin/act_runner"
-ACT_VERSIONS="$(curl -q -LSsf -X 'GET' 'https://gitea.com/api/v1/repos/gitea/act_runner/releases' -H 'accept: application/json' | jq -r '.[].tag_name')"
+ACT_VERSIONS="$(curl -q -LSsf -X 'GET' 'https://gitea.com/api/v1/repos/gitea/act_runner/releases' -H 'accept: application/json' | jq -r '.[].tag_name' | sort -Vr | head -n1)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 case "$ARCH" in
 x86_64) ARCH="amd64" ;;
@@ -144,7 +144,7 @@ else
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #ACT_URL="https://dl.gitea.com/act_runner/nightly/act_runner-nightly-linux-$ARCH"
-ACT_URL="$(curl -q -LSsf -X 'GET' 'https://gitea.com/api/v1/repos/gitea/act_runner/releases/tags/'$ACT_VERSIONS'' -H 'accept: application/json' | jq -rc '.assets|.[]|.browser_download_url' | grep "linux.*$ARCH$")"
+ACT_URL="$(curl -q -LSsf -X 'GET' "https://gitea.com/api/v1/repos/gitea/act_runner/releases/tags/$ACT_VERSIONS" -H 'accept: application/json' | jq -rc '.assets|.[]|.browser_download_url' | grep "linux.*$ARCH$")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 echo "Dowloading from $API_URL"
 curl -q -LSsf "$API_URL" -o "$GITEA_BIN_FILE" && chmod +x "$GITEA_BIN_FILE"
