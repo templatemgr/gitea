@@ -1,5 +1,7 @@
 ## 👋 gitea config files 🚀  
 
+A free and self hosted alternative to github/gitlab/bitbucket
+
 ### Install
   
 ```shell
