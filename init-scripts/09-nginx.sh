@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202309031844-git
+##@Version           :  202309032018-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
-# @@ReadME           :  09-nginx.sh --help
+# @@ReadME           :  nginx.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Sunday, Sep 03, 2023 18:44 EDT
-# @@File             :  09-nginx.sh
+# @@Created          :  Sunday, Sep 03, 2023 20:18 EDT
+# @@File             :  nginx.sh
 # @@Description      :
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -200,9 +200,6 @@ __update_conf_files() {
 
   # custom commands
 
-  # unset unneeded variables
-  unset application_files filedirs
-
   return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -218,10 +215,10 @@ __pre_execute() {
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # create user if needed
-  __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-3000}" "${SERVICE_GID:-3000}"
+  __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-}" "${SERVICE_GID:-}"
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Modify user if needed
-  __set_user_group_id $SERVICE_USER ${SERVICE_UID:-3000} ${SERVICE_GID:-3000}
+  __set_user_group_id $SERVICE_USER ${SERVICE_UID:-} ${SERVICE_GID:-}
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Set permissions
   __fix_permissions "$SERVICE_USER" "$SERVICE_GROUP"
@@ -236,25 +233,17 @@ __pre_execute() {
   for config_2_etc in $CONF_DIR $ADDITIONAL_CONFIG_DIRS; do
     __initialize_system_etc "$config_2_etc" |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
   done
-  unset config_2_etc ADDITIONAL_CONFIG_DIRS
-
-  unset change_user change_user
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Replace the applications user and group
-  __find_replace "REPLACE_WWW_USER" "${SERVICE_USER:-root}" "$ETC_DIR"
-  __find_replace "REPLACE_WWW_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-root}}" "$ETC_DIR"
-  __find_replace "REPLACE_APP_USER" "${SERVICE_USER:-root}" "$ETC_DIR"
-  __find_replace "REPLACE_APP_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-root}}" "$ETC_DIR"
+
   # Replace variables
-  __initialize_replace_variables "$ETC_DIR"
-  __initialize_replace_variables "$CONF_DIR"
-  __initialize_replace_variables "$WWW_ROOT_DIR"
+  HOSTNAME="$sysname" __initialize_replace_variables "$ETC_DIR" "$CONF_DIR" "$WWW_ROOT_DIR"
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Run checks
   __run_pre_execute_checks
 
   # unset unneeded variables
-  unset filesperms filename
+  unset filesperms filename config_2_etc change_user change_user ADDITIONAL_CONFIG_DIRS application_files filedirs
   # Lets wait a few seconds before continuing
   sleep 10
   return $exitCode
@@ -282,6 +271,7 @@ __pre_message() {
   [ -n "$user_pass" ] && __printf_space "40" "password:" "saved to ${USER_FILE_PREFIX}/${SERVICE_NAME}_pass" && echo "$user_pass" >"${USER_FILE_PREFIX}/${SERVICE_NAME}_pass"
   [ -n "$root_user_name" ] && echo "root username:     $root_user_name" && echo "$root_user_name" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name"
   [ -n "$root_user_pass" ] && __printf_space "40" "root password:" "saved to ${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && echo "$root_user_pass" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass"
+  [ -n "$PRE_EXEC_MESSAGE" ] && eval echo "$PRE_EXEC_MESSAGE"
 
   return $exitCode
 }
@@ -557,7 +547,6 @@ __update_conf_files
 __initialize_database
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # run the pre execute commands
-[ -n "$PRE_EXEC_MESSAGE" ] && eval echo "$PRE_EXEC_MESSAGE"
 __pre_execute
 __run_secure_function
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202309031844-git
+##@Version           :  202309032018-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  05-docker.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Sunday, Sep 03, 2023 18:44 EDT
+# @@Created          :  Sunday, Sep 03, 2023 20:18 EDT
 # @@File             :  05-docker.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -117,8 +117,8 @@ SERVICE_PORT=""
 RUNAS_USER="root" # normally root
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User and group in which the service switches to - IE: nginx,apache,mysql,postgres
-SERVICE_USER="docker"  # execute command as another user
-SERVICE_GROUP="docker" # Set the service group
+SERVICE_USER="gitea"  # execute command as another user
+SERVICE_GROUP="gitea" # Set the service group
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set user and group ID
 SERVICE_UID="0" # set the user id
@@ -201,9 +201,6 @@ __update_conf_files() {
 
   # custom commands
 
-  # unset unneeded variables
-  unset application_files filedirs
-
   return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -219,10 +216,10 @@ __pre_execute() {
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # create user if needed
-  __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-3000}" "${SERVICE_GID:-3000}"
+  __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-}" "${SERVICE_GID:-}"
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Modify user if needed
-  __set_user_group_id $SERVICE_USER ${SERVICE_UID:-3000} ${SERVICE_GID:-3000}
+  __set_user_group_id $SERVICE_USER ${SERVICE_UID:-} ${SERVICE_GID:-}
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Set permissions
   __fix_permissions "$SERVICE_USER" "$SERVICE_GROUP"
@@ -237,25 +234,17 @@ __pre_execute() {
   for config_2_etc in $CONF_DIR $ADDITIONAL_CONFIG_DIRS; do
     __initialize_system_etc "$config_2_etc" |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
   done
-  unset config_2_etc ADDITIONAL_CONFIG_DIRS
-
-  unset change_user change_user
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Replace the applications user and group
-  __find_replace "REPLACE_WWW_USER" "${SERVICE_USER:-root}" "$ETC_DIR"
-  __find_replace "REPLACE_WWW_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-root}}" "$ETC_DIR"
-  __find_replace "REPLACE_APP_USER" "${SERVICE_USER:-root}" "$ETC_DIR"
-  __find_replace "REPLACE_APP_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-root}}" "$ETC_DIR"
+
   # Replace variables
-  __initialize_replace_variables "$ETC_DIR"
-  __initialize_replace_variables "$CONF_DIR"
-  __initialize_replace_variables "$WWW_ROOT_DIR"
+  HOSTNAME="$sysname" __initialize_replace_variables "$ETC_DIR" "$CONF_DIR" "$WWW_ROOT_DIR"
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Run checks
   __run_pre_execute_checks
 
   # unset unneeded variables
-  unset filesperms filename
+  unset filesperms filename config_2_etc change_user change_user ADDITIONAL_CONFIG_DIRS application_files filedirs
   # Lets wait a few seconds before continuing
   sleep 10
   return $exitCode
@@ -283,6 +272,7 @@ __pre_message() {
   [ -n "$user_pass" ] && __printf_space "40" "password:" "saved to ${USER_FILE_PREFIX}/${SERVICE_NAME}_pass" && echo "$user_pass" >"${USER_FILE_PREFIX}/${SERVICE_NAME}_pass"
   [ -n "$root_user_name" ] && echo "root username:     $root_user_name" && echo "$root_user_name" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name"
   [ -n "$root_user_pass" ] && __printf_space "40" "root password:" "saved to ${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && echo "$root_user_pass" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass"
+  [ -n "$PRE_EXEC_MESSAGE" ] && eval echo "$PRE_EXEC_MESSAGE"
 
   return $exitCode
 }
@@ -297,24 +287,8 @@ __update_ssl_conf() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __create_service_env() {
   cat <<EOF | tee -p "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh" &>/dev/null
-#ENV_SERVICE_UID="${ENV_UID:-${ENV_SERVICE_UID:-$SERVICE_UID}}"      # Set UID
-#ENV_SERVICE_GID="${ENV_GID:-${ENV_SERVICE_GID:-$SERVICE_GID}}"      # Set GID
-#ENV_RUNAS_USER="${ENV_RUNAS_USER:-$RUNAS_USER}"                     # normally root
-#ENV_WORKDIR="${ENV_WORK_DIR:-$WORK_DIR}"                            # change to directory
-#ENV_WWW_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"                    # set default web dir
-#ENV_ETC_DIR="${ENV_ETC_DIR:-$ETC_DIR}"                              # set default etc dir
-#ENV_DATA_DIR="${ENV_DATA_DIR:-$DATA_DIR}"                           # set default data dir
-#ENV_CONF_DIR="${ENV_CONF_DIR:-$CONF_DIR}"                           # set default config dir
-#ENV_DATABASE_DIR="${ENV_DATABASE_DIR:-$DATABASE_DIR}"               # set database dir
-#ENV_SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"               # execute command as another user
-#ENV_EXEC_PRE_SCRIPT="${ENV_EXEC_PRE_SCRIPT:-$EXEC_PRE_SCRIPT}"      # execute before commands
-#ENV_EXEC_CMD_BIN="${ENV_EXEC_CMD_BIN:-$EXEC_CMD_BIN}"               # command to execute
-#ENV_EXEC_CMD_ARGS="${ENV_EXEC_CMD_ARGS:-$EXEC_CMD_ARGS}"            # command arguments
-#ENV_EXEC_CMD_NAME="$(basename "$EXEC_CMD_BIN")"                     # set the binary name
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # root/admin user info [password/random]
-#ENV_ROOT_USER_NAME="${ENV_ROOT_USER_NAME:-$DOCKER_ROOT_USER_NAME}"   # root user name
-#ENV_ROOT_USER_PASS="${ENV_ROOT_USER_NAME:-$DOCKER_ROOT_PASS_WORD}"   # root user password
 #root_user_name="${ENV_ROOT_USER_NAME:-$root_user_name}"                              #
 #root_user_pass="${ENV_ROOT_USER_PASS:-$root_user_pass}"                              #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -439,25 +413,11 @@ __proc_check() {
 # Allow ENV_ variable - Import env file
 __file_exists_with_content "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh" && . "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICE_EXIT_CODE=0                                           # default exit code
-SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"             # execute command as another user
-SERVICE_UID="${ENV_UID:-${ENV_SERVICE_UID:-$SERVICE_UID}}"    # Set UID
-SERVICE_GID="${ENV_GID:-${ENV_SERVICE_GID:-$SERVICE_GID}}"    # Set GID
-RUNAS_USER="${ENV_RUNAS_USER:-$RUNAS_USER}"                   # normally root
-WORK_DIR="${ENV_WORK_DIR:-$WORK_DIR}"                         # change to directory
-WWW_ROOT_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"             # set default web dir
-ETC_DIR="${ENV_ETC_DIR:-$ETC_DIR}"                            # set default etc dir
-DATA_DIR="${ENV_DATA_DIR:-$DATA_DIR}"                         # set default data dir
-CONF_DIR="${ENV_CONF_DIR:-$CONF_DIR}"                         # set default config dir
-DATABASE_DIR="${ENV_DATABASE_DIR:-$DATABASE_DIR}"             # set database dir
-PRE_EXEC_MESSAGE="${ENV_PRE_EXEC_MESSAGE:-$PRE_EXEC_MESSAGE}" # Show message before execute
+SERVICE_EXIT_CODE=0 # default exit code
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # application specific
-EXEC_PRE_SCRIPT="${ENV_EXEC_PRE_SCRIPT:-$EXEC_PRE_SCRIPT}"                 # Pre
-EXEC_CMD_BIN="${ENV_EXEC_CMD_BIN:-$EXEC_CMD_BIN}"                          # command to execute
 EXEC_CMD_NAME="$(basename "$EXEC_CMD_BIN")"                                # set the binary name
 SERVICE_PID_FILE="/run/init.d/$EXEC_CMD_NAME.pid"                          # set the pid file location
-EXEC_CMD_ARGS="${ENV_EXEC_CMD_ARGS:-$EXEC_CMD_ARGS}"                       # command arguments
 SERVICE_PID_NUMBER="$(__pgrep)"                                            # check if running
 EXEC_CMD_BIN="$(type -P "$EXEC_CMD_BIN" || echo "$EXEC_CMD_BIN")"          # set full path
 EXEC_PRE_SCRIPT="$(type -P "$EXEC_PRE_SCRIPT" || echo "$EXEC_PRE_SCRIPT")" # set full path
@@ -471,12 +431,6 @@ EXEC_PRE_SCRIPT="$(type -P "$EXEC_PRE_SCRIPT" || echo "$EXEC_PRE_SCRIPT")" # set
 [ -n "$RUNAS_USER" ] || RUNAS_USER="root"
 [ -n "$SERVICE_USER" ] || SERVICE_USER="${RUNAS_USER:-root}"
 [ -n "$SERVICE_GROUP" ] || SERVICE_GROUP="${RUNAS_USER:-root}"
-# Database env
-DATABASE_CREATE="${ENV_DATABASE_CREATE:-$DATABASE_CREATE}"
-DATABASE_USER="${ENV_DATABASE_USER:-${DATABASE_USER:-$user_name}}"
-DATABASE_PASSWORD="${ENV_DATABASE_PASSWORD:-${DATABASE_PASSWORD:-$user_pass}}"
-DATABASE_ROOT_USER="${ENV_DATABASE_ROOT_USER:-${DATABASE_ROOT_USER:-$root_user_name}}"
-DATABASE_ROOT_PASSWORD="${ENV_DATABASE_ROOT_PASSWORD:-${DATABASE_ROOT_PASSWORD:-$root_user_pass}}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Allow per init script usernames and passwords
 __file_exists_with_content "$ETC_DIR/auth/user/name" && user_name="$(<"$ETC_DIR/auth/user/name")"
@@ -492,27 +446,10 @@ root_user_name="${ENV_ROOT_USER_NAME:-$root_user_name}"
 root_user_pass="${ENV_ROOT_USER_PASS:-$root_user_pass}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Env vars from dockermgr script
-SERVICE_UID="${ENV_PUID:-${PUID:-$SERVICE_UID}}"
-SERVICE_GID="${ENV_PGID:-${PGID:-$SERVICE_GID}}"
 EMAIL_RELAY="${ENV_EMAIL_RELAY:-$EMAIL_RELAY}"
 EMAIL_ADMIN="${ENV_EMAIL_ADMIN:-$EMAIL_ADMIN}"
 EMAIL_DOMAIN="${ENV_EMAIL_DOMAIN:-$EMAIL_DOMAIN}"
 SERVICE_PROTOCOL="${ENV_CONTAINER_PROTOCOL:-$CONTAINER_PROTOCOL}"
-WWW_ROOT_DIR="${CONTAINER_HTML_ENV:-${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}}"
-DATABASE_DIR="${ENV_DATABASE_DIR_CUSTOM:-${DATABASE_DIR_CUSTOM:-${DATABASE_DIR_SQLITE:-$DATABASE_DIR}}}"
-user_name="${ENV_DATABASE_USER_NORMAL:-${DATABASE_USER_NORMAL:-${CONTAINER_ENV_USER_NAME:-$user_name}}}"
-user_pass="${ENV_DATABASE_PASS_NORMAL:-${DATABASE_PASS_NORMAL:-${CONTAINER_ENV_PASS_NAME:-$user_pass}}}"
-root_user_name="${ENV_DATABASE_USER_ROOT:-${DATABASE_USER_ROOT:-$root_user_name}}"
-root_user_pass="${ENV_DATABASE_PASS_ROOT:-${DATABASE_PASS_ROOT:-$root_user_pass}}"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# set password to random if variable is random
-if [ "$user_pass" = "random" ]; then
-  user_pass="$(__random_password)"
-fi
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if [ "$root_user_pass" = "random" ]; then
-  root_user_pass="$(__random_password)"
-fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Allow variables via imports - Overwrite existing
 [ -f "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh" ] && . "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh"
@@ -556,7 +493,6 @@ __update_conf_files
 __initialize_database
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # run the pre execute commands
-[ -n "$PRE_EXEC_MESSAGE" ] && eval echo "$PRE_EXEC_MESSAGE"
 __pre_execute
 __run_secure_function
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
