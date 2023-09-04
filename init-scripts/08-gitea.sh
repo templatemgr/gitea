@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202309032018-git
+##@Version           :  202309040133-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
-# @@ReadME           :  gitea.sh --help
+# @@ReadME           :  08-gitea.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Sunday, Sep 03, 2023 20:18 EDT
-# @@File             :  gitea.sh
+# @@Created          :  Monday, Sep 04, 2023 01:33 EDT
+# @@File             :  08-gitea.sh
 # @@Description      :
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -104,12 +104,6 @@ root_user_pass="${GITEA_ROOT_PASS_WORD:-}" # root user password
 user_name="${GITEA_USER_NAME:-}"      # normal user name
 user_pass="${GITEA_USER_PASS_WORD:-}" # normal user password
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Overwrite variables from files
-__file_exists_with_content "${USER_FILE_PREFIX}/${SERVICE_NAME}_name" && user_name="$(<"${USER_FILE_PREFIX}/${SERVICE_NAME}_name")"
-__file_exists_with_content "${USER_FILE_PREFIX}/${SERVICE_NAME}_pass" && user_pass="$(<"${USER_FILE_PREFIX}/${SERVICE_NAME}_pass")"
-__file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name" && root_user_name="$(<"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name")"
-__file_exists_with_content "${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && root_user_pass="$(<"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass")"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # port which service is listening on
 SERVICE_PORT="8000"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -117,8 +111,8 @@ SERVICE_PORT="8000"
 RUNAS_USER="gitea" # normally root
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User and group in which the service switches to - IE: nginx,apache,mysql,postgres
-SERVICE_USER="$RUNAS_USER"  # execute command as another user
-SERVICE_GROUP="$RUNAS_USER" # Set the service group
+SERVICE_USER="gitea"  # execute command as another user
+SERVICE_GROUP="gitea" # Set the service group
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set user and group ID
 SERVICE_UID="0" # set the user id
@@ -128,7 +122,7 @@ SERVICE_GID="0" # set the group id
 EXEC_CMD_BIN='gitea'                                                  # command to execute
 EXEC_CMD_ARGS='--port $SERVICE_PORT --config $ETC_DIR/app.ini '       # command arguments
 EXEC_CMD_ARGS+='--custom-path $ETC_DIR/custom --work-path $DATA_DIR ' # command arguments
-EXEC_PRE_SCRIPT='sudo -u $RUNAS_USER'                                 # execute script before
+EXEC_PRE_SCRIPT=''                                                    # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
@@ -201,6 +195,10 @@ __update_conf_files() {
   # execute if directory is empty
   #__is_dir_empty "" && true || false
 
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # Create base directories
+  __setup_directories
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Initialize templates
   if [ ! -d "$CONF_DIR" ] || __is_dir_empty "$CONF_DIR"; then
     if [ -d "$ETC_DIR" ]; then
@@ -214,20 +212,21 @@ __update_conf_files() {
   # define actions
 
   # replace variables
+  # __replace "" "" "$CONF_DIR/gitea.conf"
+  # replace variables recursively
+  #  __find_replace "" "" "$CONF_DIR"
+
+  # custom commands
   sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_SQL_TYPE|${GITEA_SQL_TYPE}|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_SQL_HOST|$GITEA_SQL_DB_HOST|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_DATABASE_DIR|$DATABASE_DIR|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_SECRET_KEY|$(__random_password 32)|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$CONF_DIR/app.ini"
-  # replace variables recursively
-  #  __find_replace "" "" "$CONF_DIR"
-  # database settings
-
-  # custom commands
 
   return $exitCode
 }
@@ -315,21 +314,6 @@ __update_ssl_conf() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __create_service_env() {
   cat <<EOF | tee -p "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh" &>/dev/null
-#ENV_SERVICE_UID="${ENV_UID:-${ENV_SERVICE_UID:-$SERVICE_UID}}"      # Set UID
-#ENV_SERVICE_GID="${ENV_GID:-${ENV_SERVICE_GID:-$SERVICE_GID}}"      # Set GID
-#ENV_RUNAS_USER="${ENV_RUNAS_USER:-$RUNAS_USER}"                     # normally root
-#ENV_WORKDIR="${ENV_WORK_DIR:-$WORK_DIR}"                            # change to directory
-#ENV_WWW_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"                    # set default web dir
-#ENV_ETC_DIR="${ENV_ETC_DIR:-$ETC_DIR}"                              # set default etc dir
-#ENV_DATA_DIR="${ENV_DATA_DIR:-$DATA_DIR}"                           # set default data dir
-#ENV_CONF_DIR="${ENV_CONF_DIR:-$CONF_DIR}"                           # set default config dir
-#ENV_DATABASE_DIR="${ENV_DATABASE_DIR:-$DATABASE_DIR}"               # set database dir
-#ENV_SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"               # execute command as another user
-#ENV_SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"               # port which service is listening on
-#ENV_EXEC_PRE_SCRIPT="${ENV_EXEC_PRE_SCRIPT:-$EXEC_PRE_SCRIPT}"      # execute before commands
-#ENV_EXEC_CMD_BIN="${ENV_EXEC_CMD_BIN:-$EXEC_CMD_BIN}"               # command to execute
-#ENV_EXEC_CMD_ARGS="${ENV_EXEC_CMD_ARGS:-$EXEC_CMD_ARGS}"            # command arguments
-#ENV_EXEC_CMD_NAME="$(basename "$EXEC_CMD_BIN")"                     # set the binary name
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # root/admin user info [password/random]
 #ENV_ROOT_USER_NAME="${ENV_ROOT_USER_NAME:-$GITEA_ROOT_USER_NAME}"   # root user name
@@ -392,12 +376,13 @@ __run_start_script() {
         [ -n "$SERVICE_USER" ] && echo "Setting up $cmd_exec to run as $SERVICE_USER" || SERVICE_USER="root"
         [ -n "$SERVICE_PORT" ] && echo "$name will be running on $SERVICE_PORT" || SERVICE_PORT=""
       fi
+      [ -n "$su_exec" ] && message="using $su_exec"
       if [ -n "$pre" ] && [ -n "$(command -v "$pre" 2>/dev/null)" ]; then
         export cmd_exec="$pre $cmd $args"
-        message="Starting service: $name $args through $pre"
+        message="Starting service: $name $args through $pre $message"
       else
         export cmd_exec="$cmd $args"
-        message="Starting service: $name $args"
+        message="Starting service: $name $args $message"
       fi
       __cd "${workdir:-$home}"
       echo "$message"
@@ -459,26 +444,10 @@ __proc_check() {
 # Allow ENV_ variable - Import env file
 __file_exists_with_content "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh" && . "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICE_EXIT_CODE=0                                           # default exit code
-SERVICE_USER="${ENV_SERVICE_USER:-$SERVICE_USER}"             # execute command as another user
-SERVICE_UID="${ENV_UID:-${ENV_SERVICE_UID:-$SERVICE_UID}}"    # Set UID
-SERVICE_GID="${ENV_GID:-${ENV_SERVICE_GID:-$SERVICE_GID}}"    # Set GID
-SERVICE_PORT="${ENV_SERVICE_PORT:-$SERVICE_PORT}"             # port which service is listening on
-RUNAS_USER="${ENV_RUNAS_USER:-$RUNAS_USER}"                   # normally root
-WORK_DIR="${ENV_WORK_DIR:-$WORK_DIR}"                         # change to directory
-WWW_ROOT_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"             # set default web dir
-ETC_DIR="${ENV_ETC_DIR:-$ETC_DIR}"                            # set default etc dir
-DATA_DIR="${ENV_DATA_DIR:-$DATA_DIR}"                         # set default data dir
-CONF_DIR="${ENV_CONF_DIR:-$CONF_DIR}"                         # set default config dir
-DATABASE_DIR="${ENV_DATABASE_DIR:-$DATABASE_DIR}"             # set database dir
-PRE_EXEC_MESSAGE="${ENV_PRE_EXEC_MESSAGE:-$PRE_EXEC_MESSAGE}" # Show message before execute
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SERVICE_EXIT_CODE=0 # default exit code
 # application specific
-EXEC_PRE_SCRIPT="${ENV_EXEC_PRE_SCRIPT:-$EXEC_PRE_SCRIPT}"                 # Pre
-EXEC_CMD_BIN="${ENV_EXEC_CMD_BIN:-$EXEC_CMD_BIN}"                          # command to execute
 EXEC_CMD_NAME="$(basename "$EXEC_CMD_BIN")"                                # set the binary name
 SERVICE_PID_FILE="/run/init.d/$EXEC_CMD_NAME.pid"                          # set the pid file location
-EXEC_CMD_ARGS="${ENV_EXEC_CMD_ARGS:-$EXEC_CMD_ARGS}"                       # command arguments
 SERVICE_PID_NUMBER="$(__pgrep)"                                            # check if running
 EXEC_CMD_BIN="$(type -P "$EXEC_CMD_BIN" || echo "$EXEC_CMD_BIN")"          # set full path
 EXEC_PRE_SCRIPT="$(type -P "$EXEC_PRE_SCRIPT" || echo "$EXEC_PRE_SCRIPT")" # set full path
@@ -488,16 +457,19 @@ EXEC_PRE_SCRIPT="$(type -P "$EXEC_PRE_SCRIPT" || echo "$EXEC_PRE_SCRIPT")" # set
 [ -n "$ROOT_FILE_PREFIX" ] && { [ -d "$ROOT_FILE_PREFIX" ] || mkdir -p "$ROOT_FILE_PREFIX"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$IS_WEB_SERVER" = "yes" ] && RESET_ENV="yes"
-[ "$IS_DATABASE_SERVICE" = "yes" ] && RESET_ENV="no"
 [ -n "$RUNAS_USER" ] || RUNAS_USER="root"
 [ -n "$SERVICE_USER" ] || SERVICE_USER="${RUNAS_USER:-root}"
 [ -n "$SERVICE_GROUP" ] || SERVICE_GROUP="${RUNAS_USER:-root}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Database env
-DATABASE_CREATE="${ENV_DATABASE_CREATE:-$DATABASE_CREATE}"
-DATABASE_USER="${ENV_DATABASE_USER:-${DATABASE_USER:-$user_name}}"
-DATABASE_PASSWORD="${ENV_DATABASE_PASSWORD:-${DATABASE_PASSWORD:-$user_pass}}"
-DATABASE_ROOT_USER="${ENV_DATABASE_ROOT_USER:-${DATABASE_ROOT_USER:-$root_user_name}}"
-DATABASE_ROOT_PASSWORD="${ENV_DATABASE_ROOT_PASSWORD:-${DATABASE_ROOT_PASSWORD:-$root_user_pass}}"
+if [ "$IS_DATABASE_SERVICE" = "yes" ]; then
+  RESET_ENV="no"
+  DATABASE_CREATE="${ENV_DATABASE_CREATE:-$DATABASE_CREATE}"
+  DATABASE_USER="${ENV_DATABASE_USER:-${DATABASE_USER:-$user_name}}"
+  DATABASE_PASSWORD="${ENV_DATABASE_PASSWORD:-${DATABASE_PASSWORD:-$user_pass}}"
+  DATABASE_ROOT_USER="${ENV_DATABASE_ROOT_USER:-${DATABASE_ROOT_USER:-$root_user_name}}"
+  DATABASE_ROOT_PASSWORD="${ENV_DATABASE_ROOT_PASSWORD:-${DATABASE_ROOT_PASSWORD:-$root_user_pass}}"
+fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Allow per init script usernames and passwords
 __file_exists_with_content "$ETC_DIR/auth/user/name" && user_name="$(<"$ETC_DIR/auth/user/name")"
@@ -505,38 +477,22 @@ __file_exists_with_content "$ETC_DIR/auth/user/pass" && user_pass="$(<"$ETC_DIR/
 __file_exists_with_content "$ETC_DIR/auth/root/name" && root_user_name="$(<"$ETC_DIR/auth/root/name")"
 __file_exists_with_content "$ETC_DIR/auth/root/pass" && root_user_pass="$(<"$ETC_DIR/auth/root/pass")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__initialize_db_users
-# Allow setting initial users and passwords via environment
-user_name="${ENV_USER_NAME:-$user_name}"
-user_pass="${ENV_USER_PASS:-$user_pass}"
-root_user_name="${ENV_ROOT_USER_NAME:-$root_user_name}"
-root_user_pass="${ENV_ROOT_USER_PASS:-$root_user_pass}"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Env vars from dockermgr script
-SERVICE_UID="${ENV_PUID:-${PUID:-$SERVICE_UID}}"
-SERVICE_GID="${ENV_PGID:-${PGID:-$SERVICE_GID}}"
-EMAIL_RELAY="${ENV_EMAIL_RELAY:-$EMAIL_RELAY}"
-EMAIL_ADMIN="${ENV_EMAIL_ADMIN:-$EMAIL_ADMIN}"
-EMAIL_DOMAIN="${ENV_EMAIL_DOMAIN:-$EMAIL_DOMAIN}"
-SERVICE_PROTOCOL="${ENV_CONTAINER_PROTOCOL:-$CONTAINER_PROTOCOL}"
-WWW_ROOT_DIR="${CONTAINER_HTML_ENV:-${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}}"
-DATABASE_DIR="${ENV_DATABASE_DIR_CUSTOM:-${DATABASE_DIR_CUSTOM:-${DATABASE_DIR_SQLITE:-$DATABASE_DIR}}}"
-user_name="${ENV_DATABASE_USER_NORMAL:-${DATABASE_USER_NORMAL:-${CONTAINER_ENV_USER_NAME:-$user_name}}}"
-user_pass="${ENV_DATABASE_PASS_NORMAL:-${DATABASE_PASS_NORMAL:-${CONTAINER_ENV_PASS_NAME:-$user_pass}}}"
-root_user_name="${ENV_DATABASE_USER_ROOT:-${DATABASE_USER_ROOT:-$root_user_name}}"
-root_user_pass="${ENV_DATABASE_PASS_ROOT:-${DATABASE_PASS_ROOT:-$root_user_pass}}"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # set password to random if variable is random
-if [ "$user_pass" = "random" ]; then
-  user_pass="$(__random_password)"
-fi
+[ "$user_pass" = "random" ] && user_pass="$(__random_password)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if [ "$root_user_pass" = "random" ]; then
-  root_user_pass="$(__random_password)"
-fi
+[ "$root_user_pass" = "random" ] && root_user_pass="$(__random_password)"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Allow setting initial users and passwords via environment
+user_name="$(eval echo "${ENV_USER_NAME:-$user_name}")"
+user_pass="$(eval echo "${ENV_USER_PASS:-$user_pass}")"
+root_user_name="$(eval echo "${ENV_ROOT_USER_NAME:-$root_user_name}")"
+root_user_pass="$(eval echo "${ENV_ROOT_USER_PASS:-$root_user_pass}")"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Allow variables via imports - Overwrite existing
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ -f "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh" ] && . "/config/env/${SERVICE_NAME:-$SCRIPT_NAME}.sh"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__initialize_db_users
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Only run check
 if [ "$1" = "check" ]; then
@@ -548,12 +504,16 @@ fi
 if [ "$RUNAS_USER" = "root" ]; then
   su_cmd() { eval "$*" || return 1; }
 elif [ "$(builtin type -P gosu)" ]; then
+  su_exec="gosu $RUNAS_USER"
   su_cmd() { gosu $RUNAS_USER "$@" || return 1; }
 elif [ "$(builtin type -P runuser)" ]; then
+  su_exec="runuser -u $RUNAS_USER"
   su_cmd() { runuser -u $RUNAS_USER "$@" || return 1; }
 elif [ "$(builtin type -P sudo)" ]; then
+  su_exec="sudo -u $RUNAS_USER"
   su_cmd() { sudo -u $RUNAS_USER "$@" || return 1; }
 elif [ "$(builtin type -P su)" ]; then
+  su_exec="su -s /bin/sh - $RUNAS_USER"
   su_cmd() { su -s /bin/sh - $RUNAS_USER -c "$@" || return 1; }
 else
   su_cmd() { echo "Can not switch to $RUNAS_USER: attempting to run as root" && eval "$*" || return 1; }
