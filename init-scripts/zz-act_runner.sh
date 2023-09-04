@@ -57,16 +57,19 @@ __run_pre_execute_checks() {
     runner_name="${runner_name//.conf/}"
     RUNNER_LABELS="linux"
     RUNNER_NAME="$runner_name"
+    GITEA_PORT="${GITEA_PORT:-80}"
     GITEA_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
+    GITEA_HOSTNAME="${GITEA_HOSTNAME//:*/}"
+    GITEA_PORT="${GITEA_PORT//*:/}"
     while :; do
       [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
       if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-        echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME:$SERVICE_PORT/admin/runners and edit $runner" >&2
+        echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME:$GITEA_PORT/admin/runners and edit $runner" >&2
       fi
       [ -f "$runner" ] && . "$runner"
       if [ -n "$RUNNER_AUTH_TOKEN" ]; then
         echo "RUNNER_AUTH_TOKEN has been set"
-        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$SERVICE_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive &
+        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$GITEA_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive &
         [ $exitStatus -eq 0 ] && echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid" && exitStatus=0 || exitStatus=1
         break
       else
@@ -181,7 +184,7 @@ CMD_ENV=""
 # Per Application Variables or imports
 GITEA_PORT="${GITEA_PORT:-8000}"
 RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-}"
-GITEA_HOSTNAME="${GITEA_HOSTNAME:-localhost:$GITEA_PORT}"
+GITEA_HOSTNAME="${GITEA_HOSTNAME:-}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Custom prerun functions - IE setup WWW_ROOT_DIR
 
@@ -190,7 +193,7 @@ GITEA_HOSTNAME="${GITEA_HOSTNAME:-localhost:$GITEA_PORT}"
 __update_conf_files() {
   local exitCode=0                                               # default exit code
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
-
+  export GITEA_HOSTNAME="${GITEA_HOSTNAME:-sysname}"
   # CD into temp to bybass any permission errors
   cd /tmp || false # lets keep shellcheck happy by adding false
 
