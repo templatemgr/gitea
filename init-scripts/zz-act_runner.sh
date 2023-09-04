@@ -51,7 +51,6 @@ done
 # Run any pre-execution checks
 __run_pre_execute_checks() {
   local exitStatus=0
-
   for runner in "$CONF_DIR/reg"/*.reg; do
     exitStatus=0
     RUNNER_LABELS="linux"
@@ -68,7 +67,7 @@ __run_pre_execute_checks() {
       [ -f "$runner" ] && . "$runner"
       if [ -n "$RUNNER_AUTH_TOKEN" ]; then
         echo "RUNNER_AUTH_TOKEN has been set"
-        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$GITEA_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive || exitStatus=1
+        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "$GITEA_HOSTNAME" --token "$RUNNER_AUTH_TOKEN" --no-interactive || exitStatus=1
         echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
         if [ $exitStatus -eq 0 ]; then
           exitStatus=0
@@ -199,7 +198,9 @@ GITEA_HOSTNAME="${GITEA_HOSTNAME:-}"
 __update_conf_files() {
   local exitCode=0                                               # default exit code
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
-  export GITEA_HOSTNAME="${GITEA_HOSTNAME:-sysname}"
+  local GITEA_HOSTNAME="${GITEA_HOSTNAME:-$sysname}"
+  export GITEA_HOSTNAME="${GITEA_HOSTNAME//http*:/\/\/}"
+
   # CD into temp to bybass any permission errors
   cd /tmp || false # lets keep shellcheck happy by adding false
 
