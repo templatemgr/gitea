@@ -128,7 +128,7 @@ SERVICE_GID="0" # set the group id
 EXEC_CMD_BIN='gitea'                                                  # command to execute
 EXEC_CMD_ARGS='--port $SERVICE_PORT --config $ETC_DIR/app.ini '       # command arguments
 EXEC_CMD_ARGS+='--custom-path $ETC_DIR/custom --work-path $DATA_DIR ' # command arguments
-EXEC_PRE_SCRIPT=''                                                    # execute script before
+EXEC_PRE_SCRIPT='sudo -u $RUNAS_USER'                                 # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
@@ -406,7 +406,8 @@ __run_start_script() {
           eval env -i HOME="$home" LC_CTYPE="$lc_type" PATH="$path" HOSTNAME="$sysname" USER="${SERVICE_USER:-$RUNAS_USER}" $extra_env sh -c "$cmd_exec" ||
           return 10
       else
-        eval "$cmd_exec" || return 10
+        su_cmd sh -c "$cmd_exec" ||
+          eval "$cmd_exec" || return 10
       fi
     fi
   fi
