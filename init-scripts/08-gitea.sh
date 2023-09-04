@@ -213,14 +213,15 @@ __update_conf_files() {
   # define actions
 
   # replace variables
-  sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_HOST|$GITEA_SQL_DB_HOST|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_TYPE|${GITEA_SQL_TYPE:-sqlite3}|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_HOST|$GITEA_SQL_DB_HOST|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_DATABASE_DIR|$DATABASE_BASE_DIR|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_TYPE|${GITEA_SQL_TYPE:-sqlite3}|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$ETC_DIR/app.ini"
   # replace variables recursively
   #  __find_replace "" "" "$CONF_DIR"
   # database settings
