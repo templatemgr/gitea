@@ -259,7 +259,11 @@ __post_execute() {
   # execute commands
   (
     sleep 20
-    true
+    while :; do
+      sleep 30
+      pgrep nginx &>/dev/null && break
+      $EXEC_CMD_BIN $EXEC_CMD_ARGS &>/dev/null &
+    done
   ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null &
   return $exitCode
 }
