@@ -174,6 +174,7 @@ __update_conf_files() {
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
   GITEA_SQL_NAME="${GITEA_SQL_NAME:-}"
   GITEA_SQL_HOST="${GITEA_SQL_HOST:-localhost}"
+  GITEA_WORK_DIR="${GITEA_WORK_DIR:-$WORK_DIR}"
   TZ="${GITEA_TZ:-${TZ:-America/New_York}}"
   SERVICE_PROTOCOL="${GITEA_PROTO:-$SERVICE_PROTOCOL}"
   EMAIL_RELAY="${GITEA_EMAIL_RELAY:-${EMAIL_RELAY:-localhost}}"
@@ -184,12 +185,12 @@ __update_conf_files() {
   GITEA_SQL_DB_HOST="${GITEA_SQL_DB_HOST:-localhost}"
   GITEA_SQL_USER="${ENV_GITEA_SQL_USER:-$GITEA_SQL_USER}"
   GITEA_SQL_PASS="${ENV_GITEA_SQL_PASS:-$GITEA_SQL_PASS}"
-  GITEA_SQL_TYPE="${ENV_GITEA_SQL_TYPE:-$GITEA_SQL_TYPE}"
+  GITEA_SQL_TYPE="${ENV_GITEA_SQL_TYPE:-${GITEA_SQL_TYPE:-sqlite3}}"
   HOSTNAME="${GITEA_SERVER:-${GITEA_HOSTNAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}}"
   GITEA_LFS_JWT_SECRET="${GITEA_LFS_JWT_SECRET:-$($EXEC_CMD_BIN generate secret LFS_JWT_SECRET)}"
   GITEA_INTERNAL_TOKEN="${GITEA_INTERNAL_TOKEN:-$($EXEC_CMD_BIN generate secret INTERNAL_TOKEN)}"
   [ "$GITEA_EMAIL_CONFIRM" = "yes" ] && GITEA_EMAIL_CONFIRM="true"
-  export CUSTOM_PATH="$ETC_DIR" WORK_DIR="${GITEA_WORK_DIR:-$WORK_DIR}"
+  export CUSTOM_PATH="$ETC_DIR" WORK_DIR="${GITEA_WORK_DIR:-$DATA_DIR}"
 
   # CD into temp to bybass any permission errors
   cd /tmp || false # lets keep shellcheck happy by adding false
@@ -213,15 +214,15 @@ __update_conf_files() {
   # define actions
 
   # replace variables
-  sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_HOST|$GITEA_SQL_DB_HOST|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_DATABASE_DIR|$DATABASE_BASE_DIR|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_TYPE|${GITEA_SQL_TYPE:-sqlite3}|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$ETC_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$ETC_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_TYPE|${GITEA_SQL_TYPE}|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_SQL_HOST|$GITEA_SQL_DB_HOST|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_DATABASE_DIR|$DATABASE_DIR|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$CONF_DIR/app.ini"
+  sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$CONF_DIR/app.ini"
   # replace variables recursively
   #  __find_replace "" "" "$CONF_DIR"
   # database settings

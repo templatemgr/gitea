@@ -223,6 +223,7 @@ __update_conf_files() {
 
   # custom commands
   if [ ! -f "$CONF_DIR/default.conf" ]; then
+    touch "$CONF_DIR/default.conf"
     echo "# Settings for the default gitea runner" >"$CONF_DIR/default.conf"
     echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/default.conf"
     echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/default.conf"
