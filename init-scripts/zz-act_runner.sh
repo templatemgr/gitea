@@ -52,15 +52,14 @@ done
 __run_pre_execute_checks() {
   local exitStatus=0
 
-  for runner in "$CONF_DIR"/*.conf; do
-    runner_name="$(basename "$runner")"
-    runner_name="${runner_name//.conf/}"
+  for runner in "$CONF_DIR/reg"/*.reg; do
+    exitStatus=0
     RUNNER_LABELS="linux"
     RUNNER_NAME="$runner_name"
     GITEA_PORT="${GITEA_PORT:-80}"
     GITEA_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
     GITEA_HOSTNAME="${GITEA_HOSTNAME//:*/}"
-    GITEA_PORT="${GITEA_PORT//*:/}"
+    runner_name="$(basename "${runner_name//.reg/}")"
     while :; do
       [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
       if [ -z "$RUNNER_AUTH_TOKEN" ]; then
@@ -69,12 +68,18 @@ __run_pre_execute_checks() {
       [ -f "$runner" ] && . "$runner"
       if [ -n "$RUNNER_AUTH_TOKEN" ]; then
         echo "RUNNER_AUTH_TOKEN has been set"
-        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$GITEA_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive
-        [ $exitStatus -eq 0 ] && echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid" && exitStatus=0 || exitStatus=1
-        break
+        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$GITEA_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive || exitStatus=1
+        echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+        if [ $exitStatus -eq 0 ]; then
+          exitStatus=0
+          [ -f "$runner" ] && rm -Rf "$runner"
+          break
+        else
+          [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+          exitStatus=1
+        fi
       else
         sleep 120
-        RUNNER_AUTH_TOKEN="$(grep -s 'RUNNER_AUTH_TOKEN=' "$runner" | awk -F '=' '{print $2}' | sed 's|"||g' | grep '^' || false)"
       fi
     done
     echo "$$" >"$RUN_DIR/act_runner.pid"
@@ -226,13 +231,14 @@ __update_conf_files() {
   #  __find_replace "" "" "$CONF_DIR"
 
   # custom commands
-  if [ ! -f "$CONF_DIR/default.conf" ]; then
-    touch "$CONF_DIR/default.conf"
-    echo "# Settings for the default gitea runner" >"$CONF_DIR/default.conf"
-    echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/default.conf"
-    echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/default.conf"
-    echo "GITEA_HOSTNAME=\"http://$GITEA_HOSTNAME\"" >>"$CONF_DIR/default.conf"
-    echo "RUNNER_AUTH_TOKEN=\"${RUNNER_AUTH_TOKEN:-}\"" >>"$CONF_DIR/default.conf"
+  [ -d "$CONF_DIR/reg" ] || mkdir -p "$CONF_DIR/reg"
+  if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
+    touch "$CONF_DIR/reg/default.reg"
+    echo "# Settings for the default gitea runner" >"$CONF_DIR/reg/default.reg"
+    echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/reg/default.reg"
+    echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/reg/default.reg"
+    echo "GITEA_HOSTNAME=\"http://$GITEA_HOSTNAME\"" >>"$CONF_DIR/reg/default.reg"
+    echo "RUNNER_AUTH_TOKEN=\"${RUNNER_AUTH_TOKEN:-}\"" >>"$CONF_DIR/reg/default.reg"
   fi
 
   return $exitCode
