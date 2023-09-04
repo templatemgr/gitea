@@ -64,16 +64,17 @@ __run_pre_execute_checks() {
     while :; do
       [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
       if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-        echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME:$GITEA_PORT/admin/runners and edit $runner" >&2
+        echo "Error: RUNNER_AUTH_TOKEN is not set - visit http://$GITEA_HOSTNAME/admin/runners and edit $runner" >&2
       fi
       [ -f "$runner" ] && . "$runner"
       if [ -n "$RUNNER_AUTH_TOKEN" ]; then
         echo "RUNNER_AUTH_TOKEN has been set"
-        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$GITEA_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive &
+        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$GITEA_HOSTNAME:$GITEA_PORT" --token "$RUNNER_AUTH_TOKEN" --no-interactive
         [ $exitStatus -eq 0 ] && echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid" && exitStatus=0 || exitStatus=1
         break
       else
         sleep 120
+        RUNNER_AUTH_TOKEN="$(grep -s 'RUNNER_AUTH_TOKEN=' "$runner" | awk -F '=' '{print $2}' | sed 's|"||g' | grep '^' || false)"
       fi
     done
     echo "$$" >"$RUN_DIR/act_runner.pid"
@@ -145,9 +146,9 @@ SERVICE_UID="0" # set the user id
 SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
-EXEC_CMD_BIN='act_runner' # command to execute
-EXEC_CMD_ARGS='daemon'    # command arguments
-EXEC_PRE_SCRIPT=''        # execute script before
+EXEC_CMD_BIN='act_runner'                      # command to execute
+EXEC_CMD_ARGS='daemon -c $ETC_DIR/daemon.yaml' # command arguments
+EXEC_PRE_SCRIPT=''                             # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
@@ -230,7 +231,7 @@ __update_conf_files() {
     echo "# Settings for the default gitea runner" >"$CONF_DIR/default.conf"
     echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/default.conf"
     echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/default.conf"
-    echo "GITEA_HOSTNAME=\"$GITEA_HOSTNAME\"" >>"$CONF_DIR/default.conf"
+    echo "GITEA_HOSTNAME=\"http://$GITEA_HOSTNAME\"" >>"$CONF_DIR/default.conf"
     echo "RUNNER_AUTH_TOKEN=\"${RUNNER_AUTH_TOKEN:-}\"" >>"$CONF_DIR/default.conf"
   fi
 
