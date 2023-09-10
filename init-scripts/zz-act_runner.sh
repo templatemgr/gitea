@@ -72,6 +72,7 @@ __run_pre_execute_checks() {
         if [ $exitStatus -eq 0 ]; then
           exitStatus=0
           [ -f "$runner" ] && rm -Rf "$runner"
+          chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "/config/act_runner" "/etc/act_runner"
           break
         else
           [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
@@ -121,7 +122,7 @@ RUN_DIR="/run/act_runner"       # set scripts pid dir
 LOG_DIR="/data/logs/act_runner" # set log directory
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set the working dir
-WORK_DIR="" # set working directory
+WORK_DIR="/config/act_runner" # set working directory
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Where to save passwords to
 ROOT_FILE_PREFIX="/config/secure/auth/root" # directory to save username/password for root user
@@ -202,7 +203,7 @@ __update_conf_files() {
   export GITEA_HOSTNAME="${GITEA_HOSTNAME//http*:/\/\/}"
 
   # CD into temp to bybass any permission errors
-  cd /tmp || false # lets keep shellcheck happy by adding false
+  #cd /tmp || false # lets keep shellcheck happy by adding false
 
   # delete files
   #__rm ""
