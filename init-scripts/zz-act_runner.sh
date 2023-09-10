@@ -57,16 +57,15 @@ __run_pre_execute_checks() {
     RUNNER_NAME="$runner_name"
     GITEA_PORT="${GITEA_PORT:-80}"
     GITEA_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
-    GITEA_HOSTNAME="${GITEA_HOSTNAME//:*/}"
     runner_name="$(basename "${runner_name//.reg/}")"
     while :; do
+      [ -f "$runner" ] && . "$runner"
       [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
       if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-        echo "Error: RUNNER_AUTH_TOKEN is not set - visit http://$GITEA_HOSTNAME/admin/runners and edit $runner" >&2
-      fi
-      [ -f "$runner" ] && . "$runner"
-      if [ -n "$RUNNER_AUTH_TOKEN" ]; then
-        echo "RUNNER_AUTH_TOKEN has been set"
+        echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME/admin/runners and edit $runner" >&2
+        sleep 120
+      else
+        echo "RUNNER_AUTH_TOKEN has been set: trying to register $runner_name"
         act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "$GITEA_HOSTNAME" --token "$RUNNER_AUTH_TOKEN" --no-interactive || exitStatus=1
         echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
         if [ $exitStatus -eq 0 ]; then
@@ -78,8 +77,6 @@ __run_pre_execute_checks() {
           [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
           exitStatus=1
         fi
-      else
-        sleep 120
       fi
     done
     echo "$$" >"$RUN_DIR/act_runner.pid"
