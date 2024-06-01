@@ -120,7 +120,8 @@ SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
 EXEC_CMD_BIN='gitea'                                                  # command to execute
-EXEC_CMD_ARGS='--port $SERVICE_PORT --config $ETC_DIR/app.ini '       # command arguments
+EXEC_CMD_ARGS='web '                                                  # command arguments
+EXEC_CMD_ARGS+='--port $SERVICE_PORT --config $ETC_DIR/app.ini '      # command arguments
 EXEC_CMD_ARGS+='--custom-path $ETC_DIR/custom --work-path $DATA_DIR ' # command arguments
 EXEC_PRE_SCRIPT=''                                                    # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
