@@ -215,7 +215,7 @@ __update_conf_files() {
   [ -d "/usr/local/etc/docker/exec" ] || mkdir -p "/usr/local/etc/docker/exec"
 
   # define actions
-
+  chmod -Rf 777 "/data/gitea"
   # replace variables
   # __replace "" "" "$CONF_DIR/gitea.conf"
   # replace variables recursively

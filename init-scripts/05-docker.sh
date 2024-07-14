@@ -122,10 +122,10 @@ SERVICE_UID="0" # set the user id
 SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
-EXEC_CMD_BIN='dockerd'                                                                 # command to execute
-EXEC_CMD_ARGS='-H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock '                  # command arguments
-EXEC_CMD_ARGS+='-H unix:///tmp/docker.sock --config-file $ETC_DIR/docker/daemon.json ' # command arguments
-EXEC_PRE_SCRIPT=''                                                                     # execute script before
+EXEC_CMD_BIN='dockerd'                                                           # command to execute
+EXEC_CMD_ARGS='-H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock '            # command arguments
+EXEC_CMD_ARGS+='-H unix:///tmp/docker.sock --config-file $CONF_DIR/daemon.json ' # command arguments
+EXEC_PRE_SCRIPT=''                                                               # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
