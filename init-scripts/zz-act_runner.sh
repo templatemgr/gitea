@@ -69,7 +69,7 @@ __run_pre_execute_checks() {
         sleep 120
       else
         echo "RUNNER_AUTH_TOKEN has been set: trying to register $runner_name"
-        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "$GITEA_HOSTNAME" --token "$RUNNER_AUTH_TOKEN" --no-interactive || exitStatus=1
+        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://127.0.0.1:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
         echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
         if [ $exitStatus -eq 0 ]; then
           exitStatus=0
