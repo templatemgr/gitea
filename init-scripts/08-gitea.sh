@@ -64,6 +64,9 @@ __run_pre_execute_checks() {
 # Custom functions
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Script to execute
+START_SCRIPT="/usr/local/etc/docker/exec/$SERVICE_NAME"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Reset environment before executing service
 RESET_ENV="yes"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -209,6 +212,7 @@ __update_conf_files() {
       __copy_templates "$ETC_DIR" "$CONF_DIR"
     fi
   fi
+  [ -d "/usr/local/etc/docker/exec" ] || mkdir -p "/usr/local/etc/docker/exec"
 
   # define actions
 
@@ -349,7 +353,9 @@ __run_start_script() {
   [ -f "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh" ] && . "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh"
   if [ -z "$cmd" ]; then
     __post_execute 2>"/dev/stderr" |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    retVal=$?
     echo "Initializing $SCRIPT_NAME has completed"
+    exit $retVal
   else
     # ensure the command exists
     if [ ! -x "$cmd" ]; then
@@ -371,13 +377,15 @@ __run_start_script() {
       echo "$name is already running" >&2
       exit 0
     else
+      # cd to dir
+      # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      __cd "${workdir:-$home}"
       # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       # show message if env exists
-      if [ -n "$cmd_exec" ]; then
-        [ -n "$SERVICE_USER" ] && echo "Setting up $cmd_exec to run as $SERVICE_USER" || SERVICE_USER="root"
+      if [ -n "$cmd" ]; then
+        [ -n "$SERVICE_USER" ] && echo "Setting up $cmd to run as $SERVICE_USER" || SERVICE_USER="root"
         [ -n "$SERVICE_PORT" ] && echo "$name will be running on $SERVICE_PORT" || SERVICE_PORT=""
       fi
-      [ -n "$su_exec" ] && message="using $su_exec"
       if [ -n "$pre" ] && [ -n "$(command -v "$pre" 2>/dev/null)" ]; then
         export cmd_exec="$pre $cmd $args"
         message="Starting service: $name $args through $pre $message"
@@ -385,17 +393,18 @@ __run_start_script() {
         export cmd_exec="$cmd $args"
         message="Starting service: $name $args $message"
       fi
-      __cd "${workdir:-$home}"
+      [ -f "$START_SCRIPT" ] || printf '#!/usr/bin/env sh\n# %s\n%s\n' "$message" "$cmd_exec" >"$START_SCRIPT"
+      [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
+      [ -n "$su_exec" ] && echo "using $su_exec"
       echo "$message"
       su_cmd touch "$SERVICE_PID_FILE"
       __post_execute |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null &
       if [ "$RESET_ENV" = "yes" ]; then
-        su_cmd env -i HOME="$home" LC_CTYPE="$lc_type" PATH="$path" HOSTNAME="$sysname" USER="${SERVICE_USER:-$RUNAS_USER}" $extra_env sh -c "$cmd_exec" ||
-          eval env -i HOME="$home" LC_CTYPE="$lc_type" PATH="$path" HOSTNAME="$sysname" USER="${SERVICE_USER:-$RUNAS_USER}" $extra_env sh -c "$cmd_exec" ||
+        su_cmd env -i HOME="$home" LC_CTYPE="$lc_type" PATH="$path" HOSTNAME="$sysname" USER="${SERVICE_USER:-$RUNAS_USER}" $extra_env sh -c "$START_SCRIPT" ||
+          eval env -i HOME="$home" LC_CTYPE="$lc_type" PATH="$path" HOSTNAME="$sysname" USER="${SERVICE_USER:-$RUNAS_USER}" $extra_env sh -c "$START_SCRIPT" ||
           return 10
       else
-        su_cmd sh -c "$cmd_exec" ||
-          eval "$cmd_exec" || return 10
+        su_cmd "$START_SCRIPT" || eval "$START_SCRIPT" || return 10
       fi
     fi
   fi
