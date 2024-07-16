@@ -114,7 +114,7 @@ user_pass="${GITEA_USER_PASS_WORD:-}" # normal user password
 SERVICE_PORT="8000"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User to use to launch service - IE: postgres
-RUNAS_USER="root" # normally root
+RUNAS_USER="gitea" # normally root
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User and group in which the service switches to - IE: nginx,apache,mysql,postgres
 SERVICE_USER="gitea"  # execute command as another user
