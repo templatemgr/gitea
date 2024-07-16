@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407161530-git
+##@Version           :  202407161921-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  zz-act_runner.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Tuesday, Jul 16, 2024 15:30 EDT
+# @@Created          :  Tuesday, Jul 16, 2024 19:21 EDT
 # @@File             :  zz-act_runner.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -25,13 +25,16 @@
 # shellcheck disable=SC2199
 # shellcheck disable=SC2317
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# exit if __start_init_scripts function hasn't been Initialized
-[ -f "/run/__start_init_scripts.pid" ] || exit 0
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
 [ "$DEBUGGER" = "on" ] && echo "Enabling debugging" && set -o pipefail -x$DEBUGGER_OPTIONS || set -o pipefail
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 printf '%s\n' "# - - - Initializing act_runner - - - #"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# exit if __start_init_scripts function hasn't been Initialized
+if [ ! -f "/run/__start_init_scripts.pid" ]; then
+  echo "__start_init_scripts function hasn't been Initialized" >&2
+  exit 1
+fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SERVICE_NAME="act_runner"
 SCRIPT_NAME="$(basename "$0" 2>/dev/null)"
@@ -53,43 +56,47 @@ done
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Run any pre-execution checks
 __run_pre_execute_checks() {
+  # Set variables
   local exitStatus=0
 
-  for runner in "$CONF_DIR/reg"/*.reg; do
-    exitStatus=0
-    RUNNER_LABELS="linux"
-    RUNNER_NAME="$runner_name"
-    GITEA_PORT="${GITEA_PORT:-80}"
-    GITEA_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
-    runner_name="$(basename "${runner_name//.reg/}")"
-    while :; do
-      [ -f "$runner" ] && . "$runner"
-      [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
-      if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-        echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME/admin/runners and edit $runner" >&2
-        sleep 120
-      else
-        echo "RUNNER_AUTH_TOKEN has been set: trying to register $runner_name"
-        act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://127.0.0.1:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
-        echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
-        if [ $exitStatus -eq 0 ]; then
-          exitStatus=0
-          [ -f "$runner" ] && rm -Rf "$runner"
-          chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "/config/act_runner" "/etc/act_runner"
-          break
+  # Put command to execute in parentheses
+  (
+    for runner in "$CONF_DIR/reg"/*.reg; do
+      exitStatus=0
+      RUNNER_LABELS="linux"
+      RUNNER_NAME="$runner_name"
+      GITEA_PORT="${GITEA_PORT:-80}"
+      GITEA_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
+      runner_name="$(basename "${runner_name//.reg/}")"
+      while :; do
+        [ -f "$runner" ] && . "$runner"
+        [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
+        if [ -z "$RUNNER_AUTH_TOKEN" ]; then
+          echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME/admin/runners and edit $runner" >&2
+          sleep 120
         else
-          [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
-          exitStatus=1
+          echo "RUNNER_AUTH_TOKEN has been set: trying to register $runner_name"
+          act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://127.0.0.1:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
+          echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+          if [ $exitStatus -eq 0 ]; then
+            exitStatus=0
+            [ -f "$runner" ] && rm -Rf "$runner"
+            chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "/config/act_runner" "/etc/act_runner"
+            break
+          else
+            [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+            exitStatus=1
+          fi
         fi
-      fi
-    done
-    echo "$$" >"$RUN_DIR/act_runner.pid"
-  done | tee -p -a "/data/logs/entrypoint.log"
+      done
+      echo "$$" >"$RUN_DIR/act_runner.pid"
+    done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
 
-  exitStatus=$?
+  ) && exitStatus=0 || exitStatus=5
   if [ $exitStatus -ne 0 ]; then
-    echo "The pre-execution check has failed"
-    exit ${exitStatus:-20}
+    echo "The pre-execution check has failed" >&2
+    [ -f "$SERVICE_PID_FILE" ] && rm -Rf "$SERVICE_PID_FILE"
+    return 1
   fi
   return $exitStatus
 }
@@ -166,7 +173,7 @@ IS_WEB_SERVER="no"
 IS_DATABASE_SERVICE="no"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Update path var
-PATH="${PATH:-}"
+PATH=".:$PATH"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Load variables from config
 [ -f "$CONF_DIR/env/act_runner.script.sh" ] && . "$CONF_DIR/env/act_runner.script.sh" # Generated by my dockermgr script
@@ -176,9 +183,6 @@ PATH="${PATH:-}"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional variables
-GITEA_PORT="${GITEA_PORT:-8000}"
-RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-}"
-GITEA_HOSTNAME="${GITEA_HOSTNAME:-}"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
@@ -207,8 +211,6 @@ CMD_ENV=""
 __update_conf_files() {
   local exitCode=0                                               # default exit code
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
-  local GITEA_HOSTNAME="${GITEA_HOSTNAME:-$sysname}"
-  export GITEA_HOSTNAME="${GITEA_HOSTNAME//http*:/\/\/}"
 
   # CD into temp to bybass any permission errors
   cd /tmp || false # lets keep shellcheck happy by adding false
@@ -365,6 +367,9 @@ __run_start_script() {
   local message="$(eval echo "")"                                # expand variables
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
   [ -f "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh" ] && . "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh"
+  #
+  __run_pre_execute_checks "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" || return 20
+  #
   if [ -z "$cmd" ]; then
     __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
     retVal=$?
@@ -407,19 +412,33 @@ __run_start_script() {
         export cmd_exec="$cmd $args"
         message="Starting service: $name $args $message"
       fi
-      [ -n "$su_exec" ] && echo "using $su_exec" | tee -a -p /"$LOG_DIR/init.txt"
-      echo "$message" | tee -a -p /"$LOG_DIR/init.txt"
+      [ -n "$su_exec" ] && echo "using $su_exec" | tee -a -p "$LOG_DIR/init.txt"
+      echo "$message" | tee -a -p "$LOG_DIR/init.txt"
       su_cmd touch "$SERVICE_PID_FILE"
       __post_execute 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
       if [ "$RESET_ENV" = "yes" ]; then
         env_command="$(eval echo "env -i HOME=\"$home\" LC_CTYPE=\"$lc_type\" PATH=\"$path\" HOSTNAME=\"$sysname\" USER=\"${SERVICE_USER:-$RUNAS_USER}\" $extra_env")"
         echo "$env_command"
-        [ -f "$START_SCRIPT" ] || printf '#!/usr/bin/env sh\n# %s\n%s\n' "Setting up $cmd to run as ${SERVICE_USER:-root}" "exec $su_exec $env_command $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &" >"$START_SCRIPT"
+        if [ ! -f "$START_SCRIPT" ]; then
+          cat <<EOF >"$START_SCRIPT"
+          #!/usr/bin/env sh
+          # Setting up $cmd to run as ${SERVICE_USER:-root} with env
+          exec $su_exec $env_command $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+
+EOF
+        fi
         [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
         sh -c "$START_SCRIPT"
         runExitCode=$?
       else
-        [ -f "$START_SCRIPT" ] || printf '#!/usr/bin/env sh\n# %s\n%s\n' "Setting up $cmd to run as ${SERVICE_USER:-root}" "exec $su_exec $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &" >"$START_SCRIPT"
+        if [ ! -f "$START_SCRIPT" ]; then
+          cat <<EOF >"$START_SCRIPT"
+          #!/usr/bin/env sh
+          # Setting up $cmd to run as ${SERVICE_USER:-root} with env
+          exec $exec $su_exec $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+
+EOF
+        fi
         [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
         sh -c "$START_SCRIPT"
         runExitCode=$?
@@ -576,8 +595,8 @@ __run_secure_function
 # run the pre execute commands
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__run_pre_execute_checks && __run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" &>/dev/null
-if [ "$?" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
+__run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" &>/dev/null && errorCode=0 || errorCode=10
+if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
   eval echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
   rm -Rf "$SERVICE_PID_FILE"
   SERVICE_EXIT_CODE=10
