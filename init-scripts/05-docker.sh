@@ -25,6 +25,9 @@
 # shellcheck disable=SC2199
 # shellcheck disable=SC2317
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# exit if __start_init_scripts function hasn't been Initialized
+[ -f "/run/_dstart_init_scripts.pid" ] || exit 0
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
 [ "$DEBUGGER" = "on" ] && echo "Enabling debugging" && set -o pipefail -x$DEBUGGER_OPTIONS || set -o pipefail
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
