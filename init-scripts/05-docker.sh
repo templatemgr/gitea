@@ -576,4 +576,15 @@ if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
   SERVICE_IS_RUNNING="false"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__run_start_script 2>>/dev/stderr | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null && errorCode=0 || errorCode=10
+if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
+  echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" | tee -p -a "$LOG_DIR/init.txt"
+  rm -Rf "$SERVICE_PID_FILE"
+  SERVICE_EXIT_CODE=10
+  SERVICE_IS_RUNNING="false"
+fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf '%s\n' "# - - - Initializing of docker has completed with statusCode: $SERVICE_EXIT_CODE - - - #" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 exit $SERVICE_EXIT_CODE
