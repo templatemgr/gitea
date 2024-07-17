@@ -595,7 +595,7 @@ __run_secure_function
 # run the pre execute commands
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null && errorCode=0 || errorCode=10
+__run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" && errorCode=0 || errorCode=10
 if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
   eval echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
   rm -Rf "$SERVICE_PID_FILE"
