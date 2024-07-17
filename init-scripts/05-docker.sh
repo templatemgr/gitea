@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407162045-git
+##@Version           :  202407171544-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
-# @@ReadME           :  07-docker.sh --help
+# @@ReadME           :  05-docker.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Tuesday, Jul 16, 2024 20:45 EDT
-# @@File             :  07-docker.sh
+# @@Created          :  Wednesday, Jul 17, 2024 15:44 EDT
+# @@File             :  05-docker.sh
 # @@Description      :
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -261,21 +261,25 @@ __pre_execute() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # function to run after executing
 __post_execute() {
-  local message="Running post commands"                          # message to show
+  local postMessageST="Running post commands for $SCRIPT_NAME"   # message to show at start
+  local postMessageEnd="Finished post commands for $SCRIPT_NAME" # message to show at completion
   local waitTime=60                                              # how long to wait before executing
   local exitCode=0                                               # default exit code
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
 
   # execute commands
   (
-    sleep 60
-    echo "$message"
+    sleep $waitTime
+    __banner "$postMessageST"
     # commands to execute
-    true
+    {
+      true
+    }
+    # exit message
+    __banner "$postMessageEnd"
     # code to return
     return ${retVal:-0}
   ) 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
-  exitCode="$?"
   return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -362,8 +366,8 @@ __run_start_script() {
       echo "$name is already running" >&2
       return 0
     else
-      # cd to dir
       # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      # cd to dir
       __cd "${workdir:-$home}"
       # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       # show message if env exists
@@ -412,7 +416,7 @@ echo $! >"$SERVICE_PID_FILE"
 EOF
         fi
         [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
-        eval $su_exec sh -c "$START_SCRIPT"
+        eval $su_exec "$START_SCRIPT"
         runExitCode=$?
       fi
       return $runExitCode
@@ -568,14 +572,14 @@ __run_secure_function
 # run the pre execute commands
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__run_start_script 2>>/dev/stderr | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null && errorCode=0 || errorCode=10
+__run_start_script 2>>/dev/stderr | tee -p -a "/data/logs/entrypoint.log" >/dev/null && errorCode=0 || errorCode=10
 if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
-  echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" | tee -p -a "$LOG_DIR/init.txt"
+  echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
   rm -Rf "$SERVICE_PID_FILE"
   SERVICE_EXIT_CODE=10
   SERVICE_IS_RUNNING="false"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-printf '%s\n' "# - - - Initializing of docker has completed with statusCode: $SERVICE_EXIT_CODE - - - #" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
+printf '%s\n' "# - - - Initializing of $SCRIPT_NAME has completed with statusCode: $SERVICE_EXIT_CODE - - - #" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 exit $SERVICE_EXIT_CODE
