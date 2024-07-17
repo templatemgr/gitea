@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407171626-git
+##@Version           :  202407171810-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  zz-act_runner.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Wednesday, Jul 17, 2024 16:26 EDT
+# @@Created          :  Wednesday, Jul 17, 2024 18:10 EDT
 # @@File             :  zz-act_runner.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -25,24 +25,25 @@
 # shellcheck disable=SC2199
 # shellcheck disable=SC2317
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
-[ "$DEBUGGER" = "on" ] && echo "Enabling debugging" && set -o pipefail -x$DEBUGGER_OPTIONS || set -o pipefail
+# run trap command on exit
+trap 'retVal=$?;[ "$SERVICE_IS_RUNNING" != "true" ] && [ -f "$SERVICE_PID_FILE" ] && rm -Rf "$SERVICE_PID_FILE";exit $retVal' SIGINT SIGTERM EXIT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-printf '%s\n' "# - - - Initializing act_runner - - - #"
+# setup debugging - https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
+[ -f "/config/.debug" ] && [ -z "$DEBUGGER_OPTIONS" ] && export DEBUGGER_OPTIONS="$(<"/config/.debug")" || DEBUGGER_OPTIONS="${DEBUGGER_OPTIONS:-}"
+{ [ "$DEBUGGER" = "on" ] || [ -f "/config/.debug" ]; } && echo "Enabling debugging" && set -xo pipefail -x$DEBUGGER_OPTIONS && export DEBUGGER="on" || set -o pipefail
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+export PATH="/usr/local/etc/docker/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SCRIPT_FILE="$0"
+SERVICE_NAME="act_runner"
+SCRIPT_NAME="$(basename "$SCRIPT_FILE" 2>/dev/null)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # exit if __start_init_scripts function hasn't been Initialized
 if [ ! -f "/run/__start_init_scripts.pid" ]; then
   echo "__start_init_scripts function hasn't been Initialized" >&2
+  SERVICE_IS_RUNNING="no"
   exit 1
 fi
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-SERVICE_NAME="act_runner"
-SCRIPT_NAME="$(basename "$0" 2>/dev/null)"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-export PATH="/usr/local/etc/docker/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# run trap command on exit
-trap 'retVal=$?;[ "$SERVICE_IS_RUNNING" != "true" ] && [ -f "$SERVICE_PID_FILE" ] && rm -Rf "$SERVICE_PID_FILE";exit $retVal' SIGINT SIGTERM EXIT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # import the functions file
 if [ -f "/usr/local/etc/docker/functions/entrypoint.sh" ]; then
@@ -54,13 +55,15 @@ for set_env in "/root/env.sh" "/usr/local/etc/docker/env"/*.sh "/config/env"/*.s
   [ -f "$set_env" ] && . "$set_env"
 done
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf '%s\n' "# - - - Initializing $SERVICE_NAME - - - #"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Run any pre-execution checks
 __run_pre_execute_checks() {
   # Set variables
   local exitStatus=0
 
   # Put command to execute in parentheses
-  (
+  {
     {
       for runner in "$CONF_DIR/reg"/*.reg; do
         exitStatus=0
@@ -92,11 +95,11 @@ __run_pre_execute_checks() {
         echo "$$" >"$RUN_DIR/act_runner.pid"
       done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
     } &
-  ) && exitStatus=0 || exitStatus=5
+  } && exitStatus=0 || exitStatus=5
   if [ $exitStatus -ne 0 ]; then
     echo "The pre-execution check has failed" >&2
     [ -f "$SERVICE_PID_FILE" ] && rm -Rf "$SERVICE_PID_FILE"
-    return 1
+    exit 1
   fi
   return $exitStatus
 }
@@ -162,9 +165,9 @@ SERVICE_UID="0" # set the user id
 SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
-EXEC_CMD_BIN='act_runner' # command to execute
-EXEC_CMD_ARGS=''          # command arguments
-EXEC_PRE_SCRIPT=''        # execute script before
+EXEC_CMD_BIN='act_runner'                      # command to execute
+EXEC_CMD_ARGS='daemon -c $ETC_DIR/daemon.yaml' # command arguments
+EXEC_PRE_SCRIPT=''                             # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
@@ -235,7 +238,6 @@ __update_conf_files() {
     fi
   fi
   [ -d "/usr/local/etc/docker/exec" ] || mkdir -p "/usr/local/etc/docker/exec"
-  # define actions
 
   # replace variables
   # __replace "" "" "$CONF_DIR/act_runner.conf"
@@ -247,12 +249,15 @@ __update_conf_files() {
   if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
     touch "$CONF_DIR/reg/default.reg"
     echo "# Settings for the default gitea runner" >"$CONF_DIR/reg/default.reg"
-    echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/reg/default.reg"
-    echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/reg/default.reg"
-    echo "GITEA_HOSTNAME=\"http://$GITEA_HOSTNAME\"" >>"$CONF_DIR/reg/default.reg"
     echo "RUNNER_AUTH_TOKEN=\"${RUNNER_AUTH_TOKEN:-}\"" >>"$CONF_DIR/reg/default.reg"
+    echo "GITEA_HOSTNAME=\"http://$GITEA_HOSTNAME\"" >>"$CONF_DIR/reg/default.reg"
+    echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/reg/default.reg"
+    echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/reg/default.reg"
   fi
 
+  # define actions
+
+  # exit function
   return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -299,26 +304,27 @@ __pre_execute() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # function to run after executing
 __post_execute() {
-  local postMessageST="Running post commands for $SCRIPT_NAME"   # message to show at start
-  local postMessageEnd="Finished post commands for $SCRIPT_NAME" # message to show at completion
-  local waitTime=60                                              # how long to wait before executing
-  local exitCode=0                                               # default exit code
-  local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
+  local waitTime=60                                               # how long to wait before executing
+  local postMessageST="Running post commands for $SERVICE_NAME"   # message to show at start
+  local postMessageEnd="Finished post commands for $SERVICE_NAME" # message to show at completion
+  local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}"  # set hostname
 
   # execute commands
   (
+    # wait
     sleep $waitTime
+    # show message
     __banner "$postMessageST"
     # commands to execute
     {
       true
     }
-    # exit message
-    __banner "$postMessageEnd"
-    # code to return
-    return ${retVal:-0}
-  ) 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
-  return $exitCode
+    # set exitCode
+    retVal=$?
+    # show exit message
+    __banner "$postMessageEnd: Status $retVal"
+  ) 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
+  return
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # use this function to update config files - IE: change port
@@ -329,7 +335,9 @@ __pre_message() {
   [ -n "$root_user_name" ] && echo "root username:     $root_user_name" && echo "$root_user_name" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name"
   [ -n "$root_user_pass" ] && __printf_space "40" "root password:" "saved to ${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && echo "$root_user_pass" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass"
   [ -n "$PRE_EXEC_MESSAGE" ] && eval echo "$PRE_EXEC_MESSAGE"
+  # execute commands
 
+  # set exitCode
   return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -337,7 +345,9 @@ __pre_message() {
 __update_ssl_conf() {
   local exitCode=0
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
+  # execute commands
 
+  # set exitCode
   return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -430,7 +440,7 @@ __run_start_script() {
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
-trap 'retVal=\$?;[ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit $retVal' ERR
+trap 'retVal=\$?;[ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$retVal' ERR
 # Setting up $cmd to run as ${SERVICE_USER:-root} with env
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 $su_exec $env_command $cmd_exec 2>"/dev/stderr" | tee -a -p $LOG_DIR/init.txt &
@@ -442,7 +452,7 @@ EOF
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
-trap 'retVal=\$?;[ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit $retVal' ERR
+trap 'retVal=\$?;[ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$retVal' ERR
 # Setting up $cmd to run as ${SERVICE_USER:-root}
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 eval $su_exec $cmd_exec 2>"/dev/stderr" | tee -a -p $LOG_DIR/init.txt &
@@ -453,7 +463,7 @@ EOF
       fi
     fi
     [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
-    eval $su_exec "$START_SCRIPT"
+    eval sh -c "$START_SCRIPT"
     runExitCode=$?
     return $runExitCode
   fi
@@ -608,13 +618,19 @@ __run_secure_function
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __run_start_script 2>>/dev/stderr | tee -p -a "/data/logs/entrypoint.log" >/dev/null && errorCode=0 || errorCode=10
-if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
-  echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
-  rm -Rf "$SERVICE_PID_FILE"
-  SERVICE_EXIT_CODE=10
-  SERVICE_IS_RUNNING="false"
+if [ -n "$EXEC_CMD_BIN" ]; then
+  if [ "$errorCode" -ne 0 ]; then
+    echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
+    rm -Rf "$SERVICE_PID_FILE"
+    SERVICE_EXIT_CODE=10
+    SERVICE_IS_RUNNING="false"
+  else
+    SERVICE_EXIT_CODE=0
+    SERVICE_IS_RUNNING="true"
+  fi
+  SERVICE_EXIT_CODE=0
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-printf '%s\n' "# - - - Initializing of $SCRIPT_NAME has completed with statusCode: $SERVICE_EXIT_CODE - - - #" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
+__banner "Initializing of $SERVICE_NAME has completed with statusCode: $SERVICE_EXIT_CODE" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 exit $SERVICE_EXIT_CODE
