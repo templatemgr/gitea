@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407161915-git
+##@Version           :  202407171623-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  08-gitea.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Tuesday, Jul 16, 2024 19:15 EDT
+# @@Created          :  Wednesday, Jul 17, 2024 16:23 EDT
 # @@File             :  08-gitea.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -142,7 +142,7 @@ EXEC_PRE_SCRIPT=''                                                    # execute 
 IS_WEB_SERVER="no"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a database server
-IS_DATABASE_SERVICE="yes"
+IS_DATABASE_SERVICE="no"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Update path var
 PATH=".:$PATH"
@@ -292,17 +292,25 @@ __pre_execute() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # function to run after executing
 __post_execute() {
+  local postMessageST="Running post commands for $SCRIPT_NAME"   # message to show at start
+  local postMessageEnd="Finished post commands for $SCRIPT_NAME" # message to show at completion
+  local waitTime=60                                              # how long to wait before executing
   local exitCode=0                                               # default exit code
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
 
-  sleep 60                     # how long to wait before executing
-  echo "Running post commands" # message
   # execute commands
   (
-    true
-    return $?
+    sleep $waitTime
+    __banner "$postMessageST"
+    # commands to execute
+    {
+      true
+    }
+    # exit message
+    __banner "$postMessageEnd"
+    # code to return
+    return ${retVal:-0}
   ) 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
-  exitCode="$?"
   return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -389,8 +397,8 @@ __run_start_script() {
       echo "$name is already running" >&2
       return 0
     else
-      # cd to dir
       # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      # cd to dir
       __cd "${workdir:-$home}"
       # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       # show message if env exists
@@ -400,44 +408,47 @@ __run_start_script() {
       fi
       if [ -n "$pre" ] && [ -n "$(command -v "$pre" 2>/dev/null)" ]; then
         export cmd_exec="$pre $cmd $args"
-        message="Starting service: $name $args through $pre $message"
+        message="Starting service: $name $args through $pre"
       else
         export cmd_exec="$cmd $args"
-        message="Starting service: $name $args $message"
+        message="Starting service: $name $args"
       fi
       [ -n "$su_exec" ] && echo "using $su_exec" | tee -a -p "$LOG_DIR/init.txt"
       echo "$message" | tee -a -p "$LOG_DIR/init.txt"
       su_cmd touch "$SERVICE_PID_FILE"
-      __post_execute 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
+      __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
       if [ "$RESET_ENV" = "yes" ]; then
         env_command="$(eval echo "env -i HOME=\"$home\" LC_CTYPE=\"$lc_type\" PATH=\"$path\" HOSTNAME=\"$sysname\" USER=\"${SERVICE_USER:-$RUNAS_USER}\" $extra_env")"
         echo "$env_command"
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
+trap 'retVal=\$?[ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit $retVal' ERR
 # Setting up $cmd to run as ${SERVICE_USER:-root} with env
-exec $su_exec $env_command $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+SERVICE_PID_FILE="$SERVICE_PID_FILE"
+$su_exec $env_command $cmd_exec 2>"/dev/stderr" | tee -a -p $LOG_DIR/init.txt &
+echo \$! >"\$SERVICE_PID_FILE"
 
 EOF
         fi
-        [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
-        sh -c "$START_SCRIPT"
-        runExitCode=$?
       else
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
+trap 'retVal=\$?[ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit $retVal' ERR
 # Setting up $cmd to run as ${SERVICE_USER:-root}
-exec $su_exec $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+SERVICE_PID_FILE="$SERVICE_PID_FILE"
+eval $su_exec $cmd_exec 2>"/dev/stderr" | tee -a -p $LOG_DIR/init.txt &
+echo \$! >"\$SERVICE_PID_FILE"
 
 EOF
         fi
-        [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
-        eval $su_exec sh -c "$START_SCRIPT"
-        runExitCode=$?
       fi
-      return $runExitCode
     fi
+    [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
+    eval $su_exec "$START_SCRIPT"
+    runExitCode=$?
+    return $runExitCode
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -537,6 +548,7 @@ __initialize_db_users
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Only run check
 if [ "$1" = "check" ]; then
+  shift $#
   __proc_check "$EXEC_CMD_NAME" || __proc_check "$EXEC_CMD_BIN"
   exit $?
 fi
@@ -588,12 +600,14 @@ __run_secure_function
 # run the pre execute commands
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" && errorCode=0 || errorCode=10
+__run_start_script 2>>/dev/stderr | tee -p -a "/data/logs/entrypoint.log" >/dev/null && errorCode=0 || errorCode=10
 if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
-  eval echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
+  echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
   rm -Rf "$SERVICE_PID_FILE"
   SERVICE_EXIT_CODE=10
   SERVICE_IS_RUNNING="false"
 fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+printf '%s\n' "# - - - Initializing of $SCRIPT_NAME has completed with statusCode: $SERVICE_EXIT_CODE - - - #" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 exit $SERVICE_EXIT_CODE
