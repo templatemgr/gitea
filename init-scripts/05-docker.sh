@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407161914-git
+##@Version           :  202407162045-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
-# @@ReadME           :  05-docker.sh --help
+# @@ReadME           :  07-docker.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Tuesday, Jul 16, 2024 19:14 EDT
-# @@File             :  05-docker.sh
+# @@Created          :  Tuesday, Jul 16, 2024 20:45 EDT
+# @@File             :  07-docker.sh
 # @@Description      :
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -261,15 +261,19 @@ __pre_execute() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # function to run after executing
 __post_execute() {
+  local message="Running post commands"                          # message to show
+  local waitTime=60                                              # how long to wait before executing
   local exitCode=0                                               # default exit code
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
 
-  sleep 60                     # how long to wait before executing
-  echo "Running post commands" # message
   # execute commands
   (
+    sleep 60
+    echo "$message"
+    # commands to execute
     true
-    return $?
+    # code to return
+    return ${retVal:-0}
   ) 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
   exitCode="$?"
   return $exitCode
@@ -377,15 +381,18 @@ __run_start_script() {
       [ -n "$su_exec" ] && echo "using $su_exec" | tee -a -p "$LOG_DIR/init.txt"
       echo "$message" | tee -a -p "$LOG_DIR/init.txt"
       su_cmd touch "$SERVICE_PID_FILE"
-      __post_execute 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
+      __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
       if [ "$RESET_ENV" = "yes" ]; then
         env_command="$(eval echo "env -i HOME=\"$home\" LC_CTYPE=\"$lc_type\" PATH=\"$path\" HOSTNAME=\"$sysname\" USER=\"${SERVICE_USER:-$RUNAS_USER}\" $extra_env")"
         echo "$env_command"
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
-# Setting up $cmd to run as ${SERVICE_USER:-root} with env
-exec $su_exec $env_command $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+# Setting up $cmd to run as ${SERVICE_USER:-root} with enveval
+trap '[ -f "$SERVICE_PID_FILE" ] && rm -Rf "$SERVICE_PID_FILE";exit 10' ERR
+SERVICE_PID_FILE="$SERVICE_PID_FILE"
+ $su_exec $env_command $cmd_exec 2>"/dev/stderr" | tee -a -p $LOG_DIR/init.txt &
+echo $! >"$SERVICE_PID_FILE"
 
 EOF
         fi
@@ -397,7 +404,10 @@ EOF
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
 # Setting up $cmd to run as ${SERVICE_USER:-root}
-exec $su_exec $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+SERVICE_PID_FILE="$SERVICE_PID_FILE"
+trap '[ -f "$SERVICE_PID_FILE" ] && rm -Rf "$SERVICE_PID_FILE";exit $retVal' ERR
+eval $su_exec $cmd_exec 2>"/dev/stderr" | tee -a -p $LOG_DIR/init.txt &
+echo $! >"$SERVICE_PID_FILE"
 
 EOF
         fi
@@ -506,6 +516,7 @@ __initialize_db_users
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Only run check
 if [ "$1" = "check" ]; then
+  shift $#
   __proc_check "$EXEC_CMD_NAME" || __proc_check "$EXEC_CMD_BIN"
   exit $?
 fi
@@ -557,7 +568,7 @@ __run_secure_function
 # run the pre execute commands
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null && errorCode=0 || errorCode=10
+__run_start_script |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" &>/dev/null && errorCode=0 || errorCode=10
 if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
   eval echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
   rm -Rf "$SERVICE_PID_FILE"
