@@ -383,9 +383,9 @@ __run_start_script() {
         echo "$env_command"
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
-          #!/usr/bin/env sh
-          # Setting up $cmd to run as ${SERVICE_USER:-root} with env
-          exec $su_exec $env_command $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+#!/usr/bin/env sh
+# Setting up $cmd to run as ${SERVICE_USER:-root} with env
+exec $su_exec $env_command $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
 
 EOF
         fi
@@ -395,14 +395,14 @@ EOF
       else
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
-          #!/usr/bin/env sh
-          # Setting up $cmd to run as ${SERVICE_USER:-root} with env
-          exec $exec $su_exec $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
+#!/usr/bin/env sh
+# Setting up $cmd to run as ${SERVICE_USER:-root}
+exec $su_exec $cmd_exec 2>/dev/stderr | tee -a -p $LOG_DIR/init.txt &
 
 EOF
         fi
         [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
-        sh -c "$START_SCRIPT"
+        eval $su_exec sh -c "$START_SCRIPT"
         runExitCode=$?
       fi
       return $runExitCode
@@ -557,7 +557,7 @@ __run_secure_function
 # run the pre execute commands
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" &>/dev/null && errorCode=0 || errorCode=10
+__run_start_script "$@" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null && errorCode=0 || errorCode=10
 if [ "$errorCode" -ne 0 ] && [ -n "$EXEC_CMD_BIN" ]; then
   eval echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" |& tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"
   rm -Rf "$SERVICE_PID_FILE"
