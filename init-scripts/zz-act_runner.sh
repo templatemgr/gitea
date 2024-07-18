@@ -71,11 +71,14 @@ __run_pre_execute_checks() {
         GITEA_PORT="${GITEA_PORT:-80}"
         GITEA_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
         RUNNER_NAME="$(basename "${runner//.reg/}")"
+        [ -f "$CONF_DIR/auth" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/auth")"
         while :; do
           [ -f "$runner" ] && . "$runner"
           [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
           if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME/admin/runners and edit $runner" >&2
+            [ -f "$CONF_DIR/$runner.auth" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/$runner.auth")"
+            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME/admin/runners" >&2
+            echo "Then edit $runner or set in $CONF_DIR/$runner.auth" >&2
             sleep 120
           else
             echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
@@ -247,6 +250,7 @@ __update_conf_files() {
 
   # custom commands
   [ -d "$CONF_DIR/reg" ] || mkdir -p "$CONF_DIR/reg"
+  [ -d "$ETC_DIR/runners" ] || mkdir -p "$ETC_DIR/runners"
   if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
     touch "$CONF_DIR/reg/default.reg"
     echo "# Settings for the default gitea runner" >"$CONF_DIR/reg/default.reg"
