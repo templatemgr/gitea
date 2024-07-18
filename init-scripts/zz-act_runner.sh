@@ -186,6 +186,7 @@ PATH=".:$PATH"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional variables
+GITEA_HOSTNAME="${GITEA_SERVER:-${GITEA_HOSTNAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}}"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
