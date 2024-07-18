@@ -65,6 +65,9 @@ __run_pre_execute_checks() {
   # Put command to execute in parentheses
   {
     {
+      if [ ! -f "$CONF_DIR/.runner" ]; then
+        sleep 120
+      fi
       for runner in "$CONF_DIR/reg"/*.reg; do
         exitStatus=0
         RUNNER_LABELS="linux"
@@ -97,6 +100,7 @@ __run_pre_execute_checks() {
         done
         echo "$$" >"$RUN_DIR/act_runner.pid"
       done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
+      echo "" >"$CONF_DIR/.runner"
     } &
   } && exitStatus=0 || exitStatus=5
   if [ $exitStatus -ne 0 ]; then
