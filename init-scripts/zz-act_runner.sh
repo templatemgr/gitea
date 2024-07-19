@@ -104,6 +104,7 @@ __run_pre_execute_checks() {
             else
               [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
               exitStatus=1
+              sleep 120
             fi
           fi
         done
