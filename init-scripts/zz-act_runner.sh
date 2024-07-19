@@ -71,7 +71,13 @@ __run_pre_execute_checks() {
       fi
       for runner in "$CONF_DIR/reg"/*.reg; do
         exitStatus=0
-        RUNNER_LABELS="linux"
+        RUNNER_LABELS="linux:host"
+        RUNNER_LABELS+=",cth-ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
+        RUNNER_LABELS+=",ubuntu-latest:docker://node:16"
+        RUNNER_LABELS+=",ubuntu-latest:docker://node:18"
+        RUNNER_LABELS+=",ubuntu-latest:docker://node:20"
+        RUNNER_LABELS+=",ubuntu-latest:docker://node:22"
+        RUNNER_LABELS+=",ubuntu-latest:docker://node:latest"
         GITEA_PORT="${GITEA_PORT:-8000}"
         RUNNER_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
         RUNNER_NAME="$(basename "${runner//.reg/}")"
@@ -259,7 +265,6 @@ __update_conf_files() {
 
   # custom commands
   [ -d "$CONF_DIR/reg" ] || mkdir -p "$CONF_DIR/reg"
-  [ -d "$ETC_DIR/runners" ] || mkdir -p "$ETC_DIR/runners"
   [ -d "$DATA_DIR/cache" ] || mkdir -p "$DATA_DIR/cache"
   if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
     touch "$CONF_DIR/reg/default.reg"
