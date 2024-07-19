@@ -86,12 +86,12 @@ __run_pre_execute_checks() {
           [ -f "$runner" ] && . "$runner"
           [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
           if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-            [ -f "$CONF_DIR/auth/token" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/auth/token")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/auth/token"
-            [ -f "$CONF_DIR/auth/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/auth/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/auth/$RUNNER_NAME"
-            chmod -Rf 600 "$CONF_DIR/auth/token" "$CONF_DIR/auth/$RUNNER_NAME" 2>/dev/null
+            [ -f "$CONF_DIR/tokens/system" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/system")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/system"
+            [ -f "$CONF_DIR/tokens/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/$RUNNER_NAME"
+            chmod -Rf 600 "$CONF_DIR/tokens/system" "$CONF_DIR/tokens/$RUNNER_NAME" 2>/dev/null
             chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
             echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
-            echo "Then edit $runner or set in $CONF_DIR/auth/$RUNNER_NAME" >&2
+            echo "Then edit $runner or set in $CONF_DIR/tokens/$RUNNER_NAME" >&2
             sleep 120
           else
             echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
@@ -264,7 +264,7 @@ __update_conf_files() {
   #  __find_replace "" "" "$CONF_DIR"
 
   # custom commands
-  [ -d "$CONF_DIR/auth" ] || mkdir -p "$CONF_DIR/auth"
+  [ -d "$CONF_DIR/tokens" ] || mkdir -p "$CONF_DIR/tokens"
   [ -d "$CONF_DIR/reg" ] || mkdir -p "$CONF_DIR/reg"
   [ -d "$DATA_DIR/cache" ] || mkdir -p "$DATA_DIR/cache"
   if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
