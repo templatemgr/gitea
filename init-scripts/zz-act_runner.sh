@@ -69,19 +69,17 @@ __run_pre_execute_checks() {
       if [ ! -f "$CONF_DIR/.runner" ]; then
         sleep 120
       fi
+      if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
+        touch "$CONF_DIR/reg/default.reg"
+        echo "# Settings for the default gitea runner" >"$CONF_DIR/reg/default.reg"
+        echo "RUNNER_NAME=\"gitea\"" >>"$CONF_DIR/reg/default.reg"
+        echo "RUNNER_HOSTNAME=\"http://127.0.0.1:8000\"" >>"$CONF_DIR/reg/default.reg"
+        echo "RUNNER_AUTH_TOKEN=\"${SYS_AUTH_TOKEN:-}\"" >>"$CONF_DIR/reg/default.reg"
+        echo "RUNNER_LABELS=\"$RUNNER_LABELS\"" >>"$CONF_DIR/reg/default.reg"
+      fi
       for runner in "$CONF_DIR/reg"/*.reg; do
         exitStatus=0
-        RUNNER_LABELS="linux:host"
-        RUNNER_LABELS+=",cth-ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
-        RUNNER_LABELS+=",ubuntu-latest:docker://node:16"
-        RUNNER_LABELS+=",ubuntu-latest:docker://node:18"
-        RUNNER_LABELS+=",ubuntu-latest:docker://node:20"
-        RUNNER_LABELS+=",ubuntu-latest:docker://node:22"
-        RUNNER_LABELS+=",ubuntu-latest:docker://node:latest"
-        GITEA_PORT="${GITEA_PORT:-8000}"
-        RUNNER_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
         RUNNER_NAME="$(basename "${runner//.reg/}")"
-        SYS_AUTH_TOKEN="$(gitea actions generate-runner-token)"
         while :; do
           [ -f "$runner" ] && . "$runner"
           [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
@@ -205,7 +203,15 @@ PATH="./bin:$PATH"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional variables
-
+GITEA_PORT="${GITEA_PORT:-8000}"
+RUNNER_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
+RUNNER_LABELS=",ubuntu-latest:docker://node:16"
+RUNNER_LABELS+=",ubuntu-latest:docker://node:18"
+RUNNER_LABELS+=",ubuntu-latest:docker://node:20"
+RUNNER_LABELS+=",ubuntu-latest:docker://node:22"
+RUNNER_LABELS+=",ubuntu-latest:docker://node:latest"
+RUNNER_LABELS+=",linux:host,cth-ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
+SYS_AUTH_TOKEN="$(gitea actions generate-runner-token)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
 ADD_APPLICATION_FILES=""
@@ -264,17 +270,9 @@ __update_conf_files() {
   #  __find_replace "" "" "$CONF_DIR"
 
   # custom commands
-  [ -d "$CONF_DIR/tokens" ] || mkdir -p "$CONF_DIR/tokens"
   [ -d "$CONF_DIR/reg" ] || mkdir -p "$CONF_DIR/reg"
   [ -d "$DATA_DIR/cache" ] || mkdir -p "$DATA_DIR/cache"
-  if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
-    touch "$CONF_DIR/reg/default.reg"
-    echo "# Settings for the default gitea runner" >"$CONF_DIR/reg/default.reg"
-    echo "RUNNER_AUTH_TOKEN=\"${RUNNER_AUTH_TOKEN:-}\"" >>"$CONF_DIR/reg/default.reg"
-    echo "RUNNER_HOSTNAME=\"http://$GITEA_HOSTNAME\"" >>"$CONF_DIR/reg/default.reg"
-    echo "RUNNER_LABELS=\"ubuntu-latest\"" >>"$CONF_DIR/reg/default.reg"
-    echo "RUNNER_NAME=\"local\"" >>"$CONF_DIR/reg/default.reg"
-  fi
+  [ -d "$CONF_DIR/tokens" ] || mkdir -p "$CONF_DIR/tokens"
 
   # define actions
 
