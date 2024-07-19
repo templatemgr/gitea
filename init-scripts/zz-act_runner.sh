@@ -86,12 +86,12 @@ __run_pre_execute_checks() {
           [ -f "$runner" ] && . "$runner"
           [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
           if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-            [ -f "$CONF_DIR/.authtoken" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/.authtoken")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/.authtoken"
-            [ -f "$CONF_DIR/$runner.auth" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/$runner.auth")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/$runner.auth"
-            chmod -Rf 600 "$CONF_DIR/.authtoken" "$CONF_DIR/$runner.auth" 2>/dev/null
+            [ -f "$CONF_DIR/auth/token" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/auth/token")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/auth/token"
+            [ -f "$CONF_DIR/auth/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/auth/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/auth/$RUNNER_NAME"
+            chmod -Rf 600 "$CONF_DIR/auth/token" "$CONF_DIR/auth/$RUNNER_NAME" 2>/dev/null
             chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
             echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
-            echo "Then edit $runner or set in $CONF_DIR/$runner.auth" >&2
+            echo "Then edit $runner or set in $CONF_DIR/auth/$RUNNER_NAME" >&2
             sleep 120
           else
             echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
@@ -100,7 +100,7 @@ __run_pre_execute_checks() {
             if [ $exitStatus -eq 0 ]; then
               exitStatus=0
               [ -f "$runner" ] && rm -Rf "$runner"
-              chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "/config/act_runner" "/etc/act_runner"
+              chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR"
               break
             else
               [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
@@ -264,6 +264,7 @@ __update_conf_files() {
   #  __find_replace "" "" "$CONF_DIR"
 
   # custom commands
+  [ -d "$CONF_DIR/auth" ] || mkdir -p "$CONF_DIR/auth"
   [ -d "$CONF_DIR/reg" ] || mkdir -p "$CONF_DIR/reg"
   [ -d "$DATA_DIR/cache" ] || mkdir -p "$DATA_DIR/cache"
   if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
