@@ -69,6 +69,7 @@ __run_pre_execute_checks() {
       if [ ! -f "$CONF_DIR/.runner" ]; then
         sleep 120
       fi
+      SYS_AUTH_TOKEN="$(su_cmd gitea actions generate-runner-token)"
       if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
         touch "$CONF_DIR/reg/default.reg"
         echo "# Settings for the default gitea runner" >"$CONF_DIR/reg/default.reg"
@@ -211,7 +212,6 @@ RUNNER_LABELS+=",ubuntu-latest:docker://node:20"
 RUNNER_LABELS+=",ubuntu-latest:docker://node:22"
 RUNNER_LABELS+=",ubuntu-latest:docker://node:latest"
 RUNNER_LABELS+=",linux:host,cth-ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
-SYS_AUTH_TOKEN="$(gitea actions generate-runner-token)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
 ADD_APPLICATION_FILES=""
