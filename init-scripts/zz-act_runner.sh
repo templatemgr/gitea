@@ -89,7 +89,7 @@ __run_pre_execute_checks() {
             [ -f "$CONF_DIR/tokens/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/$RUNNER_NAME"
             chmod -Rf 600 "$CONF_DIR/tokens/system" "$CONF_DIR/tokens/$RUNNER_NAME" 2>/dev/null
             chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
-            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
+            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME/admin/actions/runners" >&2
             echo "Then edit $runner or set in $CONF_DIR/tokens/$RUNNER_NAME" >&2
             sleep 120
           else
@@ -109,7 +109,7 @@ __run_pre_execute_checks() {
         done
         echo "$$" >"$RUN_DIR/act_runner.pid"
       done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
-      echo "" >"$CONF_DIR/.runner"
+      echo "$(date)" >"$CONF_DIR/.runner"
       __banner "pre execution for act_runner has completed"
     } &
   } && exitStatus=0 || exitStatus=5
