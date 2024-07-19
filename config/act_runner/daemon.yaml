@@ -5,7 +5,7 @@ log:
 
 runner:
   # Where to store the registration result.
-  file: /etc/act_runner/runners
+  file: /config/act_runner/runners
   # Execute how many tasks concurrently at the same time.
   capacity: 1
   # Extra environment variables to run jobs.
@@ -36,7 +36,7 @@ cache:
   enabled: true
   # The directory to store the cache data.
   # If it's empty, the cache data will be stored in $HOME/.cache/actcache.
-  dir: ''
+  dir: '/data/act_runner/cache'
   # The host of the cache server.
   # It's not for the address to listen, but the address to connect from job containers.
   # So 0.0.0.0 is a bad choice, leave it empty to detect automatically.
