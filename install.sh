@@ -1,5 +1,5 @@
-#!/usr/bin/env sh
-# shellcheck shell=sh
+#!/usr/bin/env bash
+# shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ##@Version           :  202308271918-git
 # @@Author           :  Jason Hempstead
@@ -25,8 +25,11 @@
 # shellcheck disable=SC2199
 # shellcheck disable=SC2317
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# setup debugging - https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
+[ -f "/config/.debug" ] && [ -z "$DEBUGGER_OPTIONS" ] && export DEBUGGER_OPTIONS="$(cat "/config/.debug")" || DEBUGGER_OPTIONS="${DEBUGGER_OPTIONS:-}"
+{ [ "$DEBUGGER" = "on" ] || [ -f "/config/.debug" ]; } && echo "Enabling debugging" && set -xo pipefail -x$DEBUGGER_OPTIONS && export DEBUGGER="on" || set -o pipefail
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # BASH_SET_SAVED_OPTIONS=$(set +o)
-[ "$DEBUGGER" = "on" ] && echo "Enabling debugging" && set -x
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set default exit code
 INSTALL_SH_EXIT_STATUS=0
@@ -118,6 +121,7 @@ fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ -d "$INIT_DIR" ] && chmod -Rf 755 "$INIT_DIR"/*.sh || true
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[ -d "$TMP_DIR/functions" ] && cp -Rf "$TMP_DIR/functions/." "/usr/local/etc/docker/functions/" || true
 [ -d "$TMP_DIR/bin" ] && chmod -Rf 755 "$TMP_DIR/bin/" && cp -Rf "$TMP_DIR/bin/." "/usr/local/bin/" || true
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Other files to copy to system
