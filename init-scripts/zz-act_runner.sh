@@ -71,12 +71,13 @@ __run_pre_execute_checks() {
       fi
       SYS_AUTH_TOKEN="$(su_cmd gitea actions generate-runner-token)"
       if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
-        touch "$CONF_DIR/reg/default.reg"
-        echo "# Settings for the default gitea runner" >"$CONF_DIR/reg/default.reg"
-        echo "RUNNER_NAME=\"gitea\"" >>"$CONF_DIR/reg/default.reg"
-        echo "RUNNER_HOSTNAME=\"http://127.0.0.1:8000\"" >>"$CONF_DIR/reg/default.reg"
-        echo "RUNNER_AUTH_TOKEN=\"${SYS_AUTH_TOKEN:-}\"" >>"$CONF_DIR/reg/default.reg"
-        echo "RUNNER_LABELS=\"$RUNNER_LABELS\"" >>"$CONF_DIR/reg/default.reg"
+        cat <<EOF >>"$CONF_DIR/reg/default.reg"
+# Settings for the default gitea runner
+RUNNER_NAME="gitea"
+RUNNER_HOSTNAME="http://127.0.0.1:8000"
+RUNNER_AUTH_TOKEN="${SYS_AUTH_TOKEN:-}"
+RUNNER_LABELS="$RUNNER_LABELS"
+EOF
       fi
       for runner in "$CONF_DIR/reg"/*.reg; do
         exitStatus=0
@@ -94,7 +95,7 @@ __run_pre_execute_checks() {
             sleep 120
           else
             echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
-            act_runner register --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://127.0.0.1:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
+            act_runner register --config "$CONF_DIR/daemon.conf" --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://127.0.0.1:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
             echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
             if [ $exitStatus -eq 0 ]; then
               exitStatus=0

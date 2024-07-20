@@ -236,8 +236,6 @@ __update_conf_files() {
   #  __find_replace "" "" "$CONF_DIR"
 
   # custom commands
-
-  # define actions
   sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$CONF_DIR/app.ini"
@@ -248,8 +246,10 @@ __update_conf_files() {
   sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$CONF_DIR/app.ini"
   sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$CONF_DIR/app.ini"
-  chmod -Rf 777 "/data/gitea"
 
+  # define actions
+  find "/data/gitea" -type d -exec chmod 0777 {} \;
+  chown -Rf $SERVICE_USER:$SERVICE_GROUP "/data/gitea"
   # exit function
   return $exitCode
 }
