@@ -74,7 +74,8 @@ mkdir -p "$CONFIG_DIR" "$INIT_DIR"
 find "$TMP_DIR/" -iname '.gitkeep' -exec rm -f {} \;
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # custom pre execution commands
-rm -Rf /etc/nginx/*
+[ -d "/etc/ssmtp" ] && rm -Rf /etc/ssmtp || mkdir -p "/etc/ssmtp"
+[ -d "/etc/nginx" ] && rm -Rf /etc/nginx/* || mkdir -p "/etc/nginx"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 get_dir_list="$(__find_directory_relative "$TMP_DIR/config" || false)"
 if [ -n "$get_dir_list" ]; then
