@@ -175,11 +175,11 @@ user_pass="${ACT_RUNNER_USER_PASS_WORD:-}" # normal user password
 SERVICE_PORT=""
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User to use to launch service - IE: postgres
-RUNAS_USER="root" # normally root
+RUNAS_USER="gitea" # normally root
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User and group in which the service switches to - IE: nginx,apache,mysql,postgres
-SERVICE_USER="act_runner"  # execute command as another user
-SERVICE_GROUP="act_runner" # Set the service group
+SERVICE_USER="gitea"  # execute command as another user
+SERVICE_GROUP="gitea" # Set the service group
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set user and group ID
 SERVICE_UID="0" # set the user id
