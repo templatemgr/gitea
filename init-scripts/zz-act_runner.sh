@@ -69,7 +69,7 @@ __run_pre_execute_checks() {
       if [ ! -f "$CONF_DIR/.runner" ]; then
         sleep 120
       fi
-      SYS_AUTH_TOKEN="$(su_cmd gitea actions generate-runner-token 2>/dev/null)"
+      SYS_AUTH_TOKEN="$(su_cmd gitea --config /config/gitea/app.ini actions generate-runner-token 2>/dev/null)"
       if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
         cat <<EOF >"$CONF_DIR/reg/default.reg"
 # Settings for the default gitea runner
@@ -105,7 +105,7 @@ EOF
             else
               [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
               exitStatus=1
-              sleep 120
+              sleep 20
             fi
           fi
         done
@@ -115,7 +115,7 @@ EOF
       [ -f "$CONF_DIR/runners" ] && cp -Rf "$CONF_DIR/runners" "$ETC_DIR/runners"
       echo "$(date)" >"$CONF_DIR/.runner"
       __banner "pre execution for act_runner has completed"
-    } &
+    }
   } && exitStatus=0 || exitStatus=5
   if [ $exitStatus -ne 0 ]; then
     echo "The pre-execution check has failed" >&2
@@ -210,8 +210,8 @@ PATH="./bin:$PATH"
 # Additional variables
 GITEA_PORT="${GITEA_PORT:-8000}"
 RUNNER_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
-RUNNER_LABELS+=",node:docker://node:latest"
-RUNNER_LABELS=",node14:docker://node:14"
+RUNNER_LABELS=",node:docker://node:latest"
+RUNNER_LABELS+=",node14:docker://node:14"
 RUNNER_LABELS=",node16:docker://node:16"
 RUNNER_LABELS+=",node18:docker://node:18"
 RUNNER_LABELS+=",node20:docker://node:20"
