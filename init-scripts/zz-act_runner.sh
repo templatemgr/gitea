@@ -71,11 +71,11 @@ __run_pre_execute_checks() {
       fi
       SYS_AUTH_TOKEN="$(su_cmd gitea actions generate-runner-token)"
       if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
-        cat <<EOF >>"$CONF_DIR/reg/default.reg"
+        cat <<EOF >"$CONF_DIR/reg/default.reg"
 # Settings for the default gitea runner
 RUNNER_NAME="gitea"
 RUNNER_HOSTNAME="http://127.0.0.1:8000"
-RUNNER_AUTH_TOKEN="${SYS_AUTH_TOKEN:-}"
+RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-$SYS_AUTH_TOKEN:-}"
 RUNNER_LABELS="$RUNNER_LABELS"
 EOF
       fi
@@ -111,6 +111,8 @@ EOF
         done
         echo "$$" >"$RUN_DIR/act_runner.pid"
       done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
+      [ -f "$ETC_DIR/runners" ] && cp -Rf "$ETC_DIR/runners" "$CONF_DIR/runners"
+      [ -f "$CONF_DIR/runners" ] && cp -Rf "$CONF_DIR/runners" "$ETC_DIR/runners"
       echo "$(date)" >"$CONF_DIR/.runner"
       __banner "pre execution for act_runner has completed"
     } &
