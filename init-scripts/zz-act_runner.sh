@@ -69,7 +69,7 @@ __run_pre_execute_checks() {
       if [ ! -f "$CONF_DIR/.runner" ]; then
         sleep 120
       fi
-      SYS_AUTH_TOKEN="$(su_cmd gitea actions generate-runner-token)"
+      SYS_AUTH_TOKEN="$(su_cmd gitea actions generate-runner-token 2>/dev/null)"
       if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
         cat <<EOF >"$CONF_DIR/reg/default.reg"
 # Settings for the default gitea runner
@@ -95,7 +95,7 @@ EOF
             sleep 120
           else
             echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
-            act_runner register --config "$CONF_DIR/daemon.conf" --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://127.0.0.1:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
+            act_runner register --config "$CONF_DIR/daemon.yaml" --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://127.0.0.1:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
             echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
             if [ $exitStatus -eq 0 ]; then
               exitStatus=0
@@ -186,10 +186,10 @@ SERVICE_UID="0" # set the user id
 SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
-EXEC_CMD_BIN='act_runner'                            # command to execute
-EXEC_CMD_ARGS='daemon --config $ETC_DIR/daemon.yaml' # command arguments
-EXEC_CMD_ARGS=''                                     # command arguments
-EXEC_PRE_SCRIPT=''                                   # execute script before
+EXEC_CMD_BIN='act_runner'                             # command to execute
+EXEC_CMD_ARGS='daemon --config $CONF_DIR/daemon.yaml' # command arguments
+EXEC_CMD_ARGS=''                                      # command arguments
+EXEC_PRE_SCRIPT=''                                    # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
