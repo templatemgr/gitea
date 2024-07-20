@@ -69,7 +69,7 @@ __run_pre_execute_checks() {
       if [ ! -f "$CONF_DIR/.runner" ]; then
         sleep 120
       fi
-      SYS_AUTH_TOKEN="$(su_cmd gitea --config /config/gitea/app.ini actions generate-runner-token 2>/dev/null)"
+      SYS_AUTH_TOKEN="$(sudo -u gitea gitea --config /config/gitea/app.ini actions generate-runner-token 2>/dev/null | grep -v '\.\.\.')"
       if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
         cat <<EOF >"$CONF_DIR/reg/default.reg"
 # Settings for the default gitea runner
@@ -90,7 +90,7 @@ EOF
             [ -f "$CONF_DIR/tokens/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/$RUNNER_NAME"
             chmod -Rf 600 "$CONF_DIR/tokens/system" "$CONF_DIR/tokens/$RUNNER_NAME" 2>/dev/null
             chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
-            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $GITEA_HOSTNAME/admin/actions/runners" >&2
+            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
             echo "Then edit $runner or set in $CONF_DIR/tokens/$RUNNER_NAME" >&2
             sleep 120
           else
@@ -210,9 +210,10 @@ PATH="./bin:$PATH"
 # Additional variables
 GITEA_PORT="${GITEA_PORT:-8000}"
 RUNNER_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
-RUNNER_LABELS=",node:docker://node:latest"
+RUNNER_LABELS="linux:host"
+RUNNER_LABELS+=",node:docker://node:latest"
 RUNNER_LABELS+=",node14:docker://node:14"
-RUNNER_LABELS=",node16:docker://node:16"
+RUNNER_LABELS+=",node16:docker://node:16"
 RUNNER_LABELS+=",node18:docker://node:18"
 RUNNER_LABELS+=",node20:docker://node:20"
 RUNNER_LABELS+=",node20:docker://node:20"
@@ -223,7 +224,7 @@ RUNNER_LABELS+=",alpine:docker://casjaysdev/alpine:latest"
 RUNNER_LABELS+=",almalinux:docker://casjaysdev/almalinux:latest"
 RUNNER_LABELS+=",debian:docker://casjaysdev/debian:latest"
 RUNNER_LABELS+=",ubuntu:docker://casjaysdev/ubuntu:latest"
-RUNNER_LABELS+=",linux:host,ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
+RUNNER_LABELS+=",ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
 ADD_APPLICATION_FILES=""
