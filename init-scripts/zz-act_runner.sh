@@ -75,7 +75,7 @@ __run_pre_execute_checks() {
 # Settings for the default gitea runner
 RUNNER_NAME="gitea"
 RUNNER_HOSTNAME="http://127.0.0.1:8000"
-RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-$SYS_AUTH_TOKEN:-}"
+RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-$SYS_AUTH_TOKEN}"
 RUNNER_LABELS="$RUNNER_LABELS"
 EOF
       fi
