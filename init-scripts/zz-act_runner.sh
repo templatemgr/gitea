@@ -348,7 +348,7 @@ __post_execute() {
     __banner "$postMessageST"
     # commands to execute
     {
-      true
+      act_runner --config $ETC_DIR/daemon.yaml cache-server -s 0.0.0.0 -p 44015 2>>/dev/stderr | tee -a -p "$LOG_DIR/act_runner_cache.log" &
     }
     # set exitCode
     retVal=$?
