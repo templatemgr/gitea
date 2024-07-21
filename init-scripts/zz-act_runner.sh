@@ -187,7 +187,6 @@ SERVICE_GID="0" # set the group id
 # execute command variables - keep single quotes variables will be expanded later
 EXEC_CMD_BIN='act_runner'                             # command to execute
 EXEC_CMD_ARGS='daemon --config $CONF_DIR/daemon.yaml' # command arguments
-EXEC_CMD_ARGS=''                                      # command arguments
 EXEC_PRE_SCRIPT=''                                    # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
