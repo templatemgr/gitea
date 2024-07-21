@@ -348,7 +348,9 @@ __post_execute() {
     __banner "$postMessageST"
     # commands to execute
     {
-      act_runner --config $ETC_DIR/daemon.yaml cache-server -s 0.0.0.0 -p 44015 2>>/dev/stderr | tee -a -p "$LOG_DIR/act_runner_cache.log" &
+      act_runner cache-server --config $CONF_DIR/daemon.yaml -s 0.0.0.0 -p 44015 2>>/dev/stderr | tee -a -p "$LOG_DIR/act_runner_cache.log" &
+      execPid=$!
+      sleep 5 && ps ax | awk '{print \$1}' | grep -v grep | grep \$execPid$ && return 0 || return 2
     }
     # set exitCode
     retVal=$?
@@ -471,11 +473,12 @@ __run_start_script() {
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
-trap 'retVal=\$?; [ \$retVal -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$retVal' ERR
+trap 'exitCode=\$?; [ \$retVal -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' ERR
 #
 set -Eeo pipefail
 # Setting up $cmd to run as ${SERVICE_USER:-root} with env
 retVal=10
+cmd="$cmd"
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 $execute_command 2>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &
 execPid=\$!
@@ -491,11 +494,12 @@ EOF
           execute_command="$(__trim "$su_exec $cmd_exec")"
           cat <<EOF >"$START_SCRIPT"
 #!/usr/bin/env sh
-trap 'retVal=\$?;[ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$retVal' ERR
+trap 'exitCode=\$?; [ \$retVal -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' ERR
 #
 set -Eeo pipefail
 # Setting up $cmd to run as ${SERVICE_USER:-root}
 retVal=10
+cmd="$cmd"
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 $execute_command 2>>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &
 execPid=\$!
