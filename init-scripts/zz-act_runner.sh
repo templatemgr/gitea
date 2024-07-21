@@ -99,7 +99,6 @@ EOF
             echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
             if [ $exitStatus -eq 0 ]; then
               exitStatus=0
-              [ -f "$runner" ] && rm -Rf "$runner"
               chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR"
               break
             else
