@@ -480,7 +480,7 @@ execPid=""
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 (eval $execute_command 2>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &) && sleep 5 || false
 retVal=\$? execPid=\$!
-echo \$! >"\$SERVICE_PID_FILE"
+[ -n "\$execPid"  ] && echo \$execPid >"\$SERVICE_PID_FILE"
 exit \$retVal
 
 EOF
@@ -499,7 +499,7 @@ execPid=""
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 (eval $execute_command 2>>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &) && sleep 5 || false
 retVal=\$? execPid=\$!
-echo \$! >"\$SERVICE_PID_FILE"
+[ -n "\$execPid"  ] && echo \$execPid >"\$SERVICE_PID_FILE"
 exit \$retVal
 
 EOF
