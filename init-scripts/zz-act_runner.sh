@@ -79,39 +79,39 @@ RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-$SYS_AUTH_TOKEN}"
 RUNNER_LABELS="$RUNNER_LABELS"
 EOF
       fi
-      for runner in "$CONF_DIR/reg"/*.reg; do
-        exitStatus=0
-        RUNNER_NAME="$(basename "${runner//.reg/}")"
-        while :; do
-          [ -f "$runner" ] && . "$runner"
-          [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
-          if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-            [ -f "$CONF_DIR/tokens/system" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/system")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/system"
-            [ -f "$CONF_DIR/tokens/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/$RUNNER_NAME"
-            chmod -Rf 600 "$CONF_DIR/tokens/system" "$CONF_DIR/tokens/$RUNNER_NAME" 2>/dev/null
-            chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
-            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
-            echo "Then edit $runner or set in $CONF_DIR/tokens/$RUNNER_NAME" >&2
-            sleep 120
-          else
-            echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
-            act_runner register --config "$CONF_DIR/daemon.yaml" --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$CONTAINER_IP4_ADDRESS:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
-            echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
-            if [ $exitStatus -eq 0 ]; then
-              exitStatus=0
-              chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR"
-              break
+      if [ ! -f "$CONF_DIR/runners" ]; then
+        for runner in "$CONF_DIR/reg"/*.reg; do
+          exitStatus=0
+          RUNNER_NAME="$(basename "${runner//.reg/}")"
+          while :; do
+            [ -f "$runner" ] && . "$runner"
+            [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
+            if [ -z "$RUNNER_AUTH_TOKEN" ]; then
+              [ -f "$CONF_DIR/tokens/system" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/system")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/system"
+              [ -f "$CONF_DIR/tokens/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/$RUNNER_NAME"
+              chmod -Rf 600 "$CONF_DIR/tokens/system" "$CONF_DIR/tokens/$RUNNER_NAME" 2>/dev/null
+              chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
+              echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
+              echo "Then edit $runner or set in $CONF_DIR/tokens/$RUNNER_NAME" >&2
+              sleep 120
             else
-              [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
-              exitStatus=1
-              sleep 20
+              echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
+              act_runner register --config "$CONF_DIR/daemon.yaml" --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$CONTAINER_IP4_ADDRESS:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
+              echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+              if [ $exitStatus -eq 0 ]; then
+                exitStatus=0
+                chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR"
+                break
+              else
+                [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+                exitStatus=1
+                sleep 20
+              fi
             fi
-          fi
-        done
-        echo "$$" >"$RUN_DIR/act_runner.pid"
-      done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
-      [ -f "$ETC_DIR/runners" ] && cp -Rf "$ETC_DIR/runners" "$CONF_DIR/runners"
-      [ -f "$CONF_DIR/runners" ] && cp -Rf "$CONF_DIR/runners" "$ETC_DIR/runners"
+          done
+        done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
+      fi
+      echo "$$" >"$RUN_DIR/act_runner.pid"
       echo "$(date)" >"$CONF_DIR/.runner"
       __banner "pre execution for act_runner has completed"
     }

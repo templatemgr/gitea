@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407241239-git
+##@Version           :  202407241407-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  entrypoint.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Wednesday, Jul 24, 2024 12:39 EDT
+# @@Created          :  Wednesday, Jul 24, 2024 14:07 EDT
 # @@File             :  entrypoint.sh
-# @@Description      :  Entrypoint file for docker
+# @@Description      :  Entrypoint file for gitea
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
 # @@Other            :
@@ -33,7 +33,7 @@ PATH="/usr/local/etc/docker/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 SCRIPT_FILE="$0"
-CONTAINER_NAME="docker"
+CONTAINER_NAME="gitea"
 SCRIPT_NAME="$(basename "$SCRIPT_FILE" 2>/dev/null)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # remove whitespaces from beginning argument
@@ -58,9 +58,6 @@ for set_env in "/root/env.sh" "/usr/local/etc/docker/env"/*.sh "/config/env"/*.s
   [ -f "$set_env" ] && . "$set_env"
 done
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Custom functions
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Define script variables
 RUNAS_USER=""    # Default is root
 SERVICE_UID=""   # set the user id
@@ -79,9 +76,9 @@ WWW_ROOT_DIR="" # set default web dir
 DATABASE_DIR="" # set database dir
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Healthcheck variables
-HEALTH_ENABLED="yes"                       # enable healthcheck [yes/no]
-SERVICES_LIST="tini,dockerd,gitea,nginx"   # comma seperated list of processes for the healthcheck
-HEALTH_ENDPOINTS="http://localhost/health" # url endpoints: [http://localhost/health,http://localhost/test]
+HEALTH_ENABLED="yes"                     # enable healthcheck [yes/no]
+SERVICES_LIST="tini,dockerd,gitea,nginx" # comma seperated list of processes for the healthcheck
+HEALTH_ENDPOINTS=""                      # url endpoints: [http://localhost/health,http://localhost/test]
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Update path var
 export PATH="${PATH:-}"
@@ -99,11 +96,13 @@ __run_message() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Startup variables
 export INIT_DATE="${INIT_DATE:-$(date)}"
+export CONTAINER_INIT="${CONTAINER_INIT:-no}"
 export START_SERVICES="${START_SERVICES:-yes}"
 export ENTRYPOINT_MESSAGE="${ENTRYPOINT_MESSAGE:-yes}"
 export ENTRYPOINT_FIRST_RUN="${ENTRYPOINT_FIRST_RUN:-yes}"
 export DATA_DIR_INITIALIZED="${DATA_DIR_INITIALIZED:-no}"
 export CONFIG_DIR_INITIALIZED="${CONFIG_DIR_INITIALIZED:-no}"
+export CONTAINER_NAME="${ENV_CONTAINER_NAME:-$CONTAINER_NAME}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # System
 export LANG="${LANG:-C.UTF-8}"
@@ -219,7 +218,7 @@ EOF
 if [ "$ENTRYPOINT_FIRST_RUN" != "no" ]; then
   # Show start message
   if [ "$CONFIG_DIR_INITIALIZED" = "no" ] || [ "$DATA_DIR_INITIALIZED" = "no" ]; then
-    [ "$ENTRYPOINT_MESSAGE" = "yes" ] && echo "Executing entrypoint script for docker"
+    [ "$ENTRYPOINT_MESSAGE" = "yes" ] && echo "Executing entrypoint script for gitea"
   fi
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Set reusable variables
@@ -346,12 +345,14 @@ __run_message
 START_SERVICES="${START_SERVICES:-SYSTEM_INIT}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Start all services if no pidfile
-if [ "$START_SERVICES" = "yes" ]; then
+if [ "$START_SERVICES" = "yes" ] && [ "$1" != "backup" ] && [ "$1" != "healthcheck" ]; then
   [ "$1" = "start" ] && shift 1
   [ "$1" = "all" ] && shift 1
+  [ "$1" = "init" ] && export CONTAINER_INIT="yes"
   echo "$$" >"/run/init.d/entrypoint.pid"
   __start_init_scripts "/usr/local/etc/docker/init.d"
   START_SERVICES="no"
+  CONTAINER_INIT="no"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Begin options
@@ -409,12 +410,18 @@ healthcheck)
   done
   for port in $ports; do
     if [ -n "$(type -P netstat)" ] && [ -n "$port" ]; then
-      netstat -taupln | grep -q ":$port " || healthStatus=$((healthStatus + 1))
+      if ! netstat -taupln | grep -q ":$port "; then
+        echo "$port isn't open" >&2
+        healthStatus=$((healthStatus + 1))
+      fi
     fi
   done
   for endpoint in $healthEndPoints; do
     if [ -n "$endpoint" ]; then
-      __curl "$endpoint" || healthStatus=$((healthStatus + 1))
+      if ! __curl "$endpoint"; then
+        echo "Can not connect to $endpoint" >&2
+        healthStatus=$((healthStatus + 1))
+      fi
     fi
   done
   [ "$healthStatus" -eq 0 ] || healthMessage="Errors reported see: docker logs --follow $CONTAINER_NAME"
