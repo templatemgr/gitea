@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407191334-git
+##@Version           :  202407241239-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  entrypoint.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Friday, Jul 19, 2024 13:34 EDT
+# @@Created          :  Wednesday, Jul 24, 2024 12:39 EDT
 # @@File             :  entrypoint.sh
-# @@Description      :
+# @@Description      :  Entrypoint file for docker
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
 # @@Other            :
@@ -33,7 +33,7 @@ PATH="/usr/local/etc/docker/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 SCRIPT_FILE="$0"
-CONTAINER_NAME="gitea"
+CONTAINER_NAME="docker"
 SCRIPT_NAME="$(basename "$SCRIPT_FILE" 2>/dev/null)"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # remove whitespaces from beginning argument
@@ -79,9 +79,9 @@ WWW_ROOT_DIR="" # set default web dir
 DATABASE_DIR="" # set database dir
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Healthcheck variables
-HEALTH_ENABLED="yes"                     # enable healthcheck [yes/no]
-SERVICES_LIST="tini,dockerd,gitea,nginx" # comma seperated list of processes for the healthcheck
-HEALTH_ENDPOINTS=""                      # url endpoints: [http://localhost/health,http://localhost/test]
+HEALTH_ENABLED="yes"                       # enable healthcheck [yes/no]
+SERVICES_LIST="tini,dockerd,gitea,nginx"   # comma seperated list of processes for the healthcheck
+HEALTH_ENDPOINTS="http://localhost/health" # url endpoints: [http://localhost/health,http://localhost/test]
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Update path var
 export PATH="${PATH:-}"
@@ -219,7 +219,7 @@ EOF
 if [ "$ENTRYPOINT_FIRST_RUN" != "no" ]; then
   # Show start message
   if [ "$CONFIG_DIR_INITIALIZED" = "no" ] || [ "$DATA_DIR_INITIALIZED" = "no" ]; then
-    [ "$ENTRYPOINT_MESSAGE" = "yes" ] && echo "Executing entrypoint script for gitea"
+    [ "$ENTRYPOINT_MESSAGE" = "yes" ] && echo "Executing entrypoint script for docker"
   fi
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Set reusable variables
@@ -323,6 +323,9 @@ if [ "$ENTRYPOINT_FIRST_RUN" != "no" ]; then
   __setup_mta
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# if no pid assume container restart
+[ -f "$ENTRYPOINT_PID_FILE" ] && [ -f "/run/__start_init_scripts.pid" ] || START_SERVICES="yes"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$ENTRYPOINT_MESSAGE" = "yes" ] && __printf_space "40" "Container ip address is:" "$CONTAINER_IP4_ADDRESS"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Show configured listing processes
@@ -341,6 +344,15 @@ __run_message
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Just start services
 START_SERVICES="${START_SERVICES:-SYSTEM_INIT}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Start all services if no pidfile
+if [ "$START_SERVICES" = "yes" ]; then
+  [ "$1" = "start" ] && shift 1
+  [ "$1" = "all" ] && shift 1
+  echo "$$" >"/run/init.d/entrypoint.pid"
+  __start_init_scripts "/usr/local/etc/docker/init.d"
+  START_SERVICES="no"
+fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Begin options
 case "$1" in
@@ -466,12 +478,15 @@ start)
     exit
   elif [ "$1" = "all" ]; then
     shift $#
-    echo "$$" >"/run/init.d/entrypoint.pid"
-    __start_init_scripts "/usr/local/etc/docker/init.d"
-  elif [ -f "/usr/local/etc/docker/init.d/$1" ]; then
-    eval "/usr/local/etc/docker/init.d/$1" &
+    if [ "$START_SERVICES" = "yes" ]; then
+      echo "$$" >"/run/init.d/entrypoint.pid"
+      __start_init_scripts "/usr/local/etc/docker/init.d"
+      __no_exit
+    elif [ -f "/usr/local/etc/docker/init.d/$1" ]; then
+      eval "/usr/local/etc/docker/init.d/$1" &
+      __no_exit
+    fi
   fi
-  __no_exit
   ;;
 # Execute primary command
 *)
