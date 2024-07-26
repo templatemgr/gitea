@@ -415,16 +415,17 @@ __fix_permissions() {
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__check_for_uid() { cat "/etc/passwd" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
+__check_for_guid() { cat "/etc/group" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __set_user_group_id() {
+  local exitStatus=0
   local set_user="${1:-$SERVICE_USER}"
   local set_uid="${2:-${SERVICE_UID:-10000}}"
   local set_gid="${3:-${SERVICE_GID:-10000}}"
-  while :; do grep -sq "x:.*:$set_gid:" "/etc/group" && grep -sq "x:$set_uid:.*:" "/etc/passwd" && set_uid="$((set_uid + 1))" && set_gid="$((set_gid + 1))}" || break; done
   local random_id="$(__generate_random_uids)"
-  local exitStatus=0
+  grep -sq "^$create_user:" "/etc/passwd" "/etc/group" && return
   [ -n "$set_user" ] && [ "$set_user" != "root" ] || return
-  { [ -n "$set_uid" ] && [ "$set_uid" != "0" ]; } || return
-  { [ -n "$set_gid" ] && [ "$set_gid" != "0" ]; } || return
   [ -n "$set_user" ] && [ -n "$set_uid" ] && [ -n "$set_gid" ] || return
   if grep -sq "^$set_user:" "/etc/passwd" "/etc/group"; then
     if ! grep -sq "x:.*:$set_gid:" "/etc/group"; then
@@ -439,9 +440,6 @@ __set_user_group_id() {
   export SERVICE_GID="$set_gid"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__check_for_uid() { cat "/etc/passwd" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
-__check_for_guid() { cat "/etc/group" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __create_service_user() {
   local create_user="${1:-$SERVICE_USER}"
   local create_group="${2:-$SERVICE_GROUP}"
@@ -451,6 +449,7 @@ __create_service_user() {
   local random_id="$(__generate_random_uids)"
   local set_home_dir=""
   local exitStatus=0
+  grep -sq "^$create_user:" "/etc/passwd" "/etc/group" && return
   [ -n "$create_user" ] && [ -n "$create_group" ] && [ "$create_user" != "root" ] || return 0
   { [ -n "$create_uid" ] && [ "$create_uid" != "0" ]; } || create_uid="$random_id"
   { [ -n "$create_gid" ] && [ "$create_gid" != "0" ]; } || create_gid="$random_id"
@@ -473,7 +472,8 @@ __create_service_user() {
   grep -qs "$create_group" "/etc/group" || exitStatus=$((exitCode + 1))
   grep -qs "$create_user" "/etc/passwd" || exitStatus=$((exitCode + 1))
   [ $exitStatus -eq 0 ] && export WORK_DIR="${set_home_dir:-}"
-  export SERVICE_UID="$create_uid" SERVICE_GID="$create_gid"
+  export SERVICE_UID="$create_uid"
+  export SERVICE_GID="$create_gid"
   return $exitStatus
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
