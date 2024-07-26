@@ -439,6 +439,9 @@ __set_user_group_id() {
   export SERVICE_GID="$set_gid"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__check_for_uid() { cat "/etc/passwd" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
+__check_for_guid() { cat "/etc/group" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __create_service_user() {
   local create_user="${1:-$SERVICE_USER}"
   local create_group="${2:-$SERVICE_GROUP}"
@@ -448,9 +451,17 @@ __create_service_user() {
   local random_id="$(__generate_random_uids)"
   local set_home_dir=""
   local exitStatus=0
-  { [ -n "$create_uid" ] && [ "$create_uid" != "0" ]; } || return
-  { [ -n "$create_gid" ] && [ "$create_gid" != "0" ]; } || return
   [ -n "$create_user" ] && [ -n "$create_group" ] && [ "$create_user" != "root" ] || return 0
+  { [ -n "$create_uid" ] && [ "$create_uid" != "0" ]; } || create_uid="$random_id"
+  { [ -n "$create_gid" ] && [ "$create_gid" != "0" ]; } || create_gid="$random_id"
+  while :; do
+    if __check_for_uid "$create_uid" && __check_for_guid "$create_gid"; then
+      break
+    else
+      create_uid=$(($random_id + 1))
+      create_gid=$(($create_gid + 1))
+    fi
+  done
   if ! grep -sqE "$create_group|$create_user" "/etc/group"; then
     echo "creating system group $create_group"
     groupadd -g $create_gid $create_group | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
