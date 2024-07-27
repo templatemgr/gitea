@@ -278,8 +278,8 @@ __cron() {
   trap '[ -f "/run/cron/$cmd" ] && rm -Rf "/run/cron/$cmd";exit 0' SIGINT ERR EXIT
   test -n "$1" && test -z "${1//[0-9]/}" && interval=$(($1 * 60)) && shift 1 || interval="5"
   [ $# -eq 0 ] && echo "Usage: cron [interval] [command]" && exit 1
-  command="$*"
-  cmd="${CRON_NAME:-$(echo "$command" | awk -F' ' '{print $1}')}"
+  local command="$*"
+  local cmd="${CRON_NAME:-$(echo "$command" | awk -F' ' '{print $1}')}"
   [ -d "/run/cron" ] || mkdir -p "/run/cron"
   echo "$command" >"/run/cron/$cmd"
   while :; do
@@ -319,22 +319,23 @@ __symlink() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __file_copy() {
-  local from="$1" to="$2"
-  if [ -n "$from" ] && [ -e "$from" ] && [ -n "$to" ]; then
+  local from="$1"
+  local dest="$2"
+  if [ -n "$from" ] && [ -e "$from" ] && [ -n "$dest" ]; then
     if [ -d "$from" ]; then
-      if cp -Rf "$from/." "$to/" &>/dev/null; then
-        printf '%s\n' "Copied: $from > $to"
+      if cp -Rf "$from/." "$dest/" &>/dev/null; then
+        printf '%s\n' "Copied: $from > $dest"
         return 0
       else
-        printf '%s\n' "Copy failed: $from < $to" >&2
+        printf '%s\n' "Copy failed: $from < $dest" >&2
         return 1
       fi
     else
-      if cp -Rf "$from" "$to" &>/dev/null; then
-        printf '%s\n' "Copied: $from > $to"
+      if cp -Rf "$from" "$dest" &>/dev/null; then
+        printf '%s\n' "Copied: $from > $dest"
         return 0
       else
-        printf '%s\n' "Copy failed: $from < $to" >&2
+        printf '%s\n' "Copy failed: $from < $dest" >&2
         return 1
       fi
     fi
@@ -415,8 +416,10 @@ __fix_permissions() {
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__check_for_uid() { cat "/etc/passwd" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
-__check_for_guid() { cat "/etc/group" | awk -F ':' '{print $3}' | grep -q "$1" || return 2; }
+__check_for_uid() { cat "/etc/passwd" | awk -F ':' '{print $3}' | sort -u | grep -q "^$1$" || return 2; }
+__check_for_guid() { cat "/etc/group" | awk -F ':' '{print $3}' | sort -u | grep -q "^$1$" || return 2; }
+__check_for_user() { cat "/etc/passwd" | awk -F ':' '{print $1}' | sort -u | grep -q "^$1$" || return 2; }
+__check_for_group() { cat "/etc/group" | awk -F ':' '{print $1}' | sort -u | grep -q "^$1$" || return 2; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __set_user_group_id() {
   local exitStatus=0
@@ -424,15 +427,15 @@ __set_user_group_id() {
   local set_uid="${2:-${SERVICE_UID:-10000}}"
   local set_gid="${3:-${SERVICE_GID:-10000}}"
   local random_id="$(__generate_random_uids)"
-  grep -sq "^$create_user:" "/etc/passwd" "/etc/group" && return
+  grep -sq "^$create_user:" "/etc/passwd" "/etc/group" || return 0
   [ -n "$set_user" ] && [ "$set_user" != "root" ] || return
   [ -n "$set_user" ] && [ -n "$set_uid" ] && [ -n "$set_gid" ] || return
   if grep -sq "^$set_user:" "/etc/passwd" "/etc/group"; then
-    if ! grep -sq "x:.*:$set_gid:" "/etc/group"; then
+    if __check_for_guid "$set_gid"; then
       groupmod -g "${set_gid}" $set_user | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
       chown -Rf $set_user
     fi
-    if ! grep -sq "x:$set_uid:.*:" "/etc/passwd"; then
+    if __check_for_uid "$set_uid"; then
       usermod -u "${set_uid}" -g "${set_gid}" $set_user | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
     fi
   fi
@@ -451,21 +454,21 @@ __create_service_user() {
   local exitStatus=0
   grep -sq "^$create_user:" "/etc/passwd" "/etc/group" && return
   [ -n "$create_user" ] && [ -n "$create_group" ] && [ "$create_user" != "root" ] || return 0
-  { [ -n "$create_uid" ] && [ "$create_uid" != "0" ]; } || create_uid="$random_id"
-  { [ -n "$create_gid" ] && [ "$create_gid" != "0" ]; } || create_gid="$random_id"
+  { [ -n "$create_uid" ] && { [ "$create_uid" = "0" ] && return; } || create_uid="$random_id"; }
+  { [ -n "$create_gid" ] && { [ "$create_gid" = "0" ] && return; } || create_gid="$random_id"; }
   while :; do
     if __check_for_uid "$create_uid" && __check_for_guid "$create_gid"; then
       break
     else
       create_uid=$(($random_id + 1))
-      create_gid=$(($create_gid + 1))
+      create_gid="$create_uid"
     fi
   done
-  if ! grep -sqE "$create_group|$create_user" "/etc/group"; then
+  if ! __check_for_group "$create_group"; then
     echo "creating system group $create_group"
     groupadd -g $create_gid $create_group | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
   fi
-  if ! grep -sqE "$create_uid|$create_user" "/etc/passwd"; then
+  if ! __check_for_user "$create_user"; then
     echo "creating system user $create_user"
     useradd -u $create_uid -g $create_gid -c "Account for $create_user" -d "$create_home_dir" -s /bin/false $create_user | tee -p -a "$LOG_DIR/tmp/init.txt" &>/dev/null
   fi
@@ -750,18 +753,21 @@ __initialize_db_users() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_system_etc() {
   local conf_dir="$1"
-  local file="" directories=""
+  local dir=""
+  local file=()
+  local directories=()
   if [ -n "$conf_dir" ] && [ -e "$conf_dir" ]; then
-    files="$(find "$conf_dir"/* -not -path '*/env/*' -type f 2>/dev/null | sed 's|'/config/'||g' | sort -u | grep -v '^$' | grep '^' || false)"
-    directories="$(find "$conf_dir"/* -not -path '*/env/*' -type d 2>/dev/null | sed 's|'/config/'||g' | sort -u | grep -v '^$' | grep '^' || false)"
+    files=("$(find "$conf_dir"/* -not -path '*/env/*' -type f 2>/dev/null | sed 's|'/config/'||g' | sort -u | grep -v '^$' | grep '^' || false)")
+    directories=("$(find "$conf_dir"/* -not -path '*/env/*' -type d 2>/dev/null | sed 's|'/config/'||g' | sort -u | grep -v '^$' | grep '^' || false)")
     echo "Copying config files to system: $conf_dir > /etc/${conf_dir//\/config\//}"
-    if [ -n "$directories" ]; then
-      for d in $directories; do
-        echo "Creating directory: /etc/$d"
-        mkdir -p "/etc/$directories"
+    if [ -n "${directories[*]}" ]; then
+      for d in "${directories[@]}"; do
+        dir="/etc/$d"
+        echo "Creating directory: $dir"
+        mkdir -p "$dir"
       done
     fi
-    for f in $files; do
+    for f in "${files[@]}"; do
       etc_file="/etc/$f"
       conf_file="/config/$f"
       [ -f "$etc_file" ] && rm -Rf "$etc_file"
@@ -772,7 +778,7 @@ __initialize_system_etc() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_custom_bin_dir() {
-  SET_USR_BIN=""
+  local SET_USR_BIN=""
   [ -d "/data/bin" ] && SET_USR_BIN+="$(__find /data/bin f) "
   [ -d "/config/bin" ] && SET_USR_BIN+="$(__find /config/bin f) "
   if [ -n "$SET_USR_BIN" ]; then

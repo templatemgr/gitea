@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407241449-git
+##@Version           :  202407271346-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
-# @@License          :  LICENSE.md
+# @@License          :  WTFPL
 # @@ReadME           :  entrypoint.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Wednesday, Jul 24, 2024 14:49 EDT
+# @@Created          :  Saturday, Jul 27, 2024 13:46 EDT
 # @@File             :  entrypoint.sh
 # @@Description      :  Entrypoint file for gitea
 # @@Changelog        :  New script
@@ -69,7 +69,7 @@ SERVICE_GROUP="" # Set the service group
 WEB_SERVER_PORT="80" # port : 80,443
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Secondary ports
-SERVER_PORTS="2375" # specifiy other ports
+SERVER_PORTS="" # specifiy other ports
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Server directories
 WWW_ROOT_DIR="" # set default web dir
