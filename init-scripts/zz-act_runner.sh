@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407191343-git
+##@Version           :  202407281545-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  zz-act_runner.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Friday, Jul 19, 2024 13:43 EDT
+# @@Created          :  Sunday, Jul 28, 2024 15:45 EDT
 # @@File             :  zz-act_runner.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -171,7 +171,7 @@ user_name="${ACT_RUNNER_USER_NAME:-}"      # normal user name
 user_pass="${ACT_RUNNER_USER_PASS_WORD:-}" # normal user password
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # port which service is listening on
-SERVICE_PORT=""
+SERVICE_PORT="44015"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # User to use to launch service - IE: postgres
 RUNAS_USER="gitea" # normally root
@@ -206,24 +206,7 @@ PATH="./bin:$PATH"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional variables
-GITEA_PORT="${GITEA_PORT:-8000}"
-RUNNER_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
-RUNNER_LABELS="linux:host"
-RUNNER_LABELS+=",node:docker://node:latest"
-RUNNER_LABELS+=",node14:docker://node:14"
-RUNNER_LABELS+=",node16:docker://node:16"
-RUNNER_LABELS+=",node18:docker://node:18"
-RUNNER_LABELS+=",node20:docker://node:20"
-RUNNER_LABELS+=",node20:docker://node:20"
-RUNNER_LABELS+=",python3:docker://python:latest"
-RUNNER_LABELS+=",php7:docker://casjaysdevdocker/php:7"
-RUNNER_LABELS+=",php8:docker://casjaysdevdocker/php:8"
-RUNNER_LABELS+=",php:docker://casjaysdevdocker/php:latest"
-RUNNER_LABELS+=",alpine:docker://casjaysdev/alpine:latest"
-RUNNER_LABELS+=",almalinux:docker://casjaysdev/almalinux:latest"
-RUNNER_LABELS+=",debian:docker://casjaysdev/debian:latest"
-RUNNER_LABELS+=",ubuntu:docker://casjaysdev/ubuntu:latest"
-RUNNER_LABELS+=",ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
 ADD_APPLICATION_FILES=""
@@ -242,7 +225,24 @@ CMD_ENV=""
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Per Application Variables or imports
-
+GITEA_PORT="${GITEA_PORT:-8000}"
+RUNNER_HOSTNAME="${GITEA_HOSTNAME:-$HOSTNAME}"
+RUNNER_LABELS="linux:host"
+RUNNER_LABELS+=",node:docker://node:latest"
+RUNNER_LABELS+=",node14:docker://node:14"
+RUNNER_LABELS+=",node16:docker://node:16"
+RUNNER_LABELS+=",node18:docker://node:18"
+RUNNER_LABELS+=",node20:docker://node:20"
+RUNNER_LABELS+=",node20:docker://node:20"
+RUNNER_LABELS+=",python3:docker://python:latest"
+RUNNER_LABELS+=",php7:docker://casjaysdevdocker/php:7"
+RUNNER_LABELS+=",php8:docker://casjaysdevdocker/php:8"
+RUNNER_LABELS+=",php:docker://casjaysdevdocker/php:latest"
+RUNNER_LABELS+=",alpine:docker://casjaysdev/alpine:latest"
+RUNNER_LABELS+=",almalinux:docker://casjaysdev/almalinux:latest"
+RUNNER_LABELS+=",debian:docker://casjaysdev/debian:latest"
+RUNNER_LABELS+=",ubuntu:docker://casjaysdev/ubuntu:latest"
+RUNNER_LABELS+=",ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Custom prerun functions - IE setup WWW_ROOT_DIR
 
@@ -300,8 +300,7 @@ __pre_execute() {
   # define commands
 
   # execute if directories is empty
-  #__is_dir_empty "" && true || false
-
+  __is_dir_empty "" && true
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # create user if needed
   __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-}" "${SERVICE_GID:-}"
@@ -311,12 +310,6 @@ __pre_execute() {
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Set permissions
   __fix_permissions "$SERVICE_USER" "$SERVICE_GROUP"
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  # Create directories
-  __setup_directories
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  # Run Custom command
-
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Copy /config to /etc
   for config_2_etc in $CONF_DIR $ADDITIONAL_CONFIG_DIRS; do
@@ -348,7 +341,7 @@ __post_execute() {
     __banner "$postMessageST"
     # commands to execute
     {
-      act_runner cache-server --config $CONF_DIR/daemon.yaml -s 0.0.0.0 -p 44015 2>>/dev/stderr | tee -a -p "$LOG_DIR/act_runner_cache.log" &
+      act_runner cache-server --config $CONF_DIR/daemon.yaml -s 0.0.0.0 -p $SERVICE_PORT 2>>/dev/stderr | tee -a -p "$LOG_DIR/act_runner_cache.log" &
       execPid=$!
       sleep 5 && ps ax | awk '{print \$1}' | grep -v grep | grep \$execPid$ && return 0 || return 2
     }
@@ -419,7 +412,7 @@ __run_start_script() {
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
   [ -f "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh" ] && . "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh"
   #
-  __run_pre_execute_checks "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" || return 20
+  __run_pre_execute_checks 2>/dev/stderr | tee -a -p "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null || return 20
   #
   if [ -z "$cmd" ]; then
     __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
@@ -472,8 +465,8 @@ __run_start_script() {
         execute_command="$(__trim "$su_exec $env_command $cmd_exec")"
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
-#!/usr/bin/env sh
-trap 'exitCode=\$?; [ \$retVal -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' ERR
+#!/usr/bin/env bash
+trap 'exitCode=\$?;[ \$exitCode -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' EXIT
 #
 set -Eeo pipefail
 # Setting up $cmd to run as ${SERVICE_USER:-root} with env
@@ -482,9 +475,10 @@ cmd="$cmd"
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 $execute_command 2>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &
 execPid=\$!
-sleep 5
-[ -n "\$execPid"  ] && echo \$execPid >"\$SERVICE_PID_FILE"
-ps ax | awk '{print \$1}' | grep -v grep | grep \$execPid$ && retVal=0
+sleep 10
+[ -n "\$execPid"  ] && echo "\$execPid" >"\$SERVICE_PID_FILE"
+ps ax | awk '{print \$1}' | grep -v grep | grep "\$execPid$" && retVal=0
+[ "\$retVal" = 0 ] && echo "\$cmd has been started" || echo "\$cmd has failed to start - args: \$args" >&2
 exit \$retVal
 
 EOF
@@ -493,8 +487,8 @@ EOF
         if [ ! -f "$START_SCRIPT" ]; then
           execute_command="$(__trim "$su_exec $cmd_exec")"
           cat <<EOF >"$START_SCRIPT"
-#!/usr/bin/env sh
-trap 'exitCode=\$?; [ \$retVal -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' ERR
+#!/usr/bin/env bash
+trap 'exitCode=\$?;[ \$exitCode -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' EXIT
 #
 set -Eeo pipefail
 # Setting up $cmd to run as ${SERVICE_USER:-root}
@@ -503,9 +497,10 @@ cmd="$cmd"
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 $execute_command 2>>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &
 execPid=\$!
-sleep 5
+sleep 10
 [ -n "\$execPid"  ] && echo \$execPid >"\$SERVICE_PID_FILE"
 ps ax | awk '{print \$1}' | grep -v grep | grep \$execPid$ && retVal=0
+[ "\$retVal" = 0 ] && echo "\$cmd has been started" || echo "\$cmd has failed to start - args: \$args" >&2
 exit \$retVal
 
 EOF
@@ -513,7 +508,7 @@ EOF
       fi
     fi
     [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
-    eval sh -c "$START_SCRIPT"
+    [ "$CONTAINER_INIT" = "yes" ] || eval sh -c "$START_SCRIPT"
     runExitCode=$?
     return $runExitCode
   fi

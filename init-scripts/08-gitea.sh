@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407191343-git
+##@Version           :  202407281544-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  08-gitea.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Friday, Jul 19, 2024 13:43 EDT
+# @@Created          :  Sunday, Jul 28, 2024 15:44 EDT
 # @@File             :  08-gitea.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -145,7 +145,7 @@ EXEC_PRE_SCRIPT=''                                                    # execute 
 IS_WEB_SERVER="no"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a database server
-IS_DATABASE_SERVICE="no"
+IS_DATABASE_SERVICE="yes"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Update path var
 PATH="./bin:$PATH"
@@ -158,25 +158,6 @@ PATH="./bin:$PATH"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional variables
-GITEA_SQL_NAME="${GITEA_SQL_NAME:-}"
-GITEA_SQL_HOST="${GITEA_SQL_HOST:-localhost}"
-GITEA_WORK_DIR="${GITEA_WORK_DIR:-$WORK_DIR}"
-TZ="${GITEA_TZ:-${TZ:-America/New_York}}"
-SERVICE_PROTOCOL="${GITEA_PROTO:-$SERVICE_PROTOCOL}"
-EMAIL_RELAY="${GITEA_EMAIL_RELAY:-${EMAIL_RELAY:-localhost}}"
-SERVER_SITE_TITLE="${GITEA_NAME:-${SERVER_SITE_TITLE:-SelfHosted GIT Server}}"
-SERVER_ADMIN="${GITEA_ADMIN:-${SERVER_ADMIN:-gitea@${DOMAINNAME:-$GITEA_HOSTNAME}}}"
-GITEA_SERVER="${ENV_GITEA_SERVER:-$GITEA_SERVER}"
-GITEA_EMAIL_CONFIRM="${GITEA_EMAIL_CONFIRM:-false}"
-GITEA_SQL_DB_HOST="${GITEA_SQL_DB_HOST:-localhost}"
-GITEA_SQL_USER="${ENV_GITEA_SQL_USER:-$GITEA_SQL_USER}"
-GITEA_SQL_PASS="${ENV_GITEA_SQL_PASS:-$GITEA_SQL_PASS}"
-GITEA_SQL_TYPE="${ENV_GITEA_SQL_TYPE:-${GITEA_SQL_TYPE:-sqlite3}}"
-HOSTNAME="${GITEA_SERVER:-${GITEA_HOSTNAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}}"
-GITEA_LFS_JWT_SECRET="${GITEA_LFS_JWT_SECRET:-$($EXEC_CMD_BIN generate secret LFS_JWT_SECRET)}"
-GITEA_INTERNAL_TOKEN="${GITEA_INTERNAL_TOKEN:-$($EXEC_CMD_BIN generate secret INTERNAL_TOKEN)}"
-[ "$GITEA_EMAIL_CONFIRM" = "yes" ] && GITEA_EMAIL_CONFIRM="true"
-export CUSTOM_PATH="$ETC_DIR" WORK_DIR="${GITEA_WORK_DIR:-$DATA_DIR}"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Specifiy custom directories to be created
@@ -196,7 +177,25 @@ CMD_ENV=""
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Per Application Variables or imports
-
+GITEA_SQL_NAME="${GITEA_SQL_NAME:-}"
+GITEA_SQL_HOST="${GITEA_SQL_HOST:-localhost}"
+GITEA_WORK_DIR="${GITEA_WORK_DIR:-$WORK_DIR}"
+TZ="${GITEA_TZ:-${TZ:-America/New_York}}"
+SERVICE_PROTOCOL="${GITEA_PROTO:-$SERVICE_PROTOCOL}"
+EMAIL_RELAY="${GITEA_EMAIL_RELAY:-${EMAIL_RELAY:-localhost}}"
+SERVER_SITE_TITLE="${GITEA_NAME:-${SERVER_SITE_TITLE:-SelfHosted GIT Server}}"
+SERVER_ADMIN="${GITEA_ADMIN:-${SERVER_ADMIN:-gitea@${DOMAINNAME:-$GITEA_HOSTNAME}}}"
+GITEA_SERVER="${ENV_GITEA_SERVER:-$GITEA_SERVER}"
+GITEA_EMAIL_CONFIRM="${GITEA_EMAIL_CONFIRM:-false}"
+GITEA_SQL_DB_HOST="${GITEA_SQL_DB_HOST:-localhost}"
+GITEA_SQL_USER="${ENV_GITEA_SQL_USER:-$GITEA_SQL_USER}"
+GITEA_SQL_PASS="${ENV_GITEA_SQL_PASS:-$GITEA_SQL_PASS}"
+GITEA_SQL_TYPE="${ENV_GITEA_SQL_TYPE:-${GITEA_SQL_TYPE:-sqlite3}}"
+HOSTNAME="${GITEA_SERVER:-${GITEA_HOSTNAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}}"
+GITEA_LFS_JWT_SECRET="${GITEA_LFS_JWT_SECRET:-$($EXEC_CMD_BIN generate secret LFS_JWT_SECRET)}"
+GITEA_INTERNAL_TOKEN="${GITEA_INTERNAL_TOKEN:-$($EXEC_CMD_BIN generate secret INTERNAL_TOKEN)}"
+[ "$GITEA_EMAIL_CONFIRM" = "yes" ] && GITEA_EMAIL_CONFIRM="true"
+export CUSTOM_PATH="$ETC_DIR" WORK_DIR="${GITEA_WORK_DIR:-$DATA_DIR}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Custom prerun functions - IE setup WWW_ROOT_DIR
 
@@ -236,20 +235,25 @@ __update_conf_files() {
   #  __find_replace "" "" "$CONF_DIR"
 
   # custom commands
-  sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_TYPE|${GITEA_SQL_TYPE}|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SQL_HOST|$GITEA_SQL_DB_HOST|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_DATABASE_DIR|$DATABASE_DIR|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_SECRET_KEY|$(__random_password 32)|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$CONF_DIR/app.ini"
-  sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$CONF_DIR/app.ini"
+  if [ -n "$CONF_DIR" ] && [ -f "$CONF_DIR/app.ini" ]; then
+    sed -i "s|REPLACE_SQL_NAME|$GITEA_SQL_NAME|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_SQL_USER|$GITEA_SQL_USER|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_SQL_PASS|$GITEA_SQL_PASS|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_SQL_TYPE|${GITEA_SQL_TYPE}|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_SQL_HOST|$GITEA_SQL_DB_HOST|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_DATABASE_DIR|$DATABASE_DIR|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_SECRET_KEY|$(__random_password 32)|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_GITEA_EMAIL_CONFIRM|$GITEA_EMAIL_CONFIRM|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_GITEA_INTERNAL_TOKEN|$GITEA_INTERNAL_TOKEN|g" "$CONF_DIR/app.ini"
+    sed -i "s|REPLACE_GITEA_LFS_JWT_SECRET|$GITEA_LFS_JWT_SECRET|g" "$CONF_DIR/app.ini"
+  fi
 
   # define actions
-  find "/data/gitea" -type d -exec chmod 0777 {} \;
-  chown -Rf $SERVICE_USER:$SERVICE_GROUP "/data/gitea"
+  if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
+    find "$DATA_DIR" -type d -exec chmod 0777 {} \;
+    chown -Rf $SERVICE_USER:$SERVICE_GROUP "$DATA_DIR"
+  fi
+
   # exit function
   return $exitCode
 }
@@ -262,8 +266,7 @@ __pre_execute() {
   # define commands
 
   # execute if directories is empty
-  #__is_dir_empty "" && true || false
-
+  __is_dir_empty "" && true
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # create user if needed
   __create_service_user "$SERVICE_USER" "$SERVICE_GROUP" "${WORK_DIR:-/home/$SERVICE_USER}" "${SERVICE_UID:-}" "${SERVICE_GID:-}"
@@ -273,12 +276,6 @@ __pre_execute() {
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Set permissions
   __fix_permissions "$SERVICE_USER" "$SERVICE_GROUP"
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  # Create directories
-  __setup_directories
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  # Run Custom command
-
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Copy /config to /etc
   for config_2_etc in $CONF_DIR $ADDITIONAL_CONFIG_DIRS; do
@@ -379,7 +376,7 @@ __run_start_script() {
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
   [ -f "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh" ] && . "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh"
   #
-  __run_pre_execute_checks "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" || return 20
+  __run_pre_execute_checks 2>/dev/stderr | tee -a -p "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null || return 20
   #
   if [ -z "$cmd" ]; then
     __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
@@ -432,8 +429,8 @@ __run_start_script() {
         execute_command="$(__trim "$su_exec $env_command $cmd_exec")"
         if [ ! -f "$START_SCRIPT" ]; then
           cat <<EOF >"$START_SCRIPT"
-#!/usr/bin/env sh
-trap 'exitCode=\$?; [ \$retVal -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' ERR
+#!/usr/bin/env bash
+trap 'exitCode=\$?;[ \$exitCode -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' EXIT
 #
 set -Eeo pipefail
 # Setting up $cmd to run as ${SERVICE_USER:-root} with env
@@ -442,9 +439,10 @@ cmd="$cmd"
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 $execute_command 2>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &
 execPid=\$!
-sleep 5
-[ -n "\$execPid"  ] && echo \$execPid >"\$SERVICE_PID_FILE"
-ps ax | awk '{print \$1}' | grep -v grep | grep \$execPid$ && retVal=0
+sleep 10
+[ -n "\$execPid"  ] && echo "\$execPid" >"\$SERVICE_PID_FILE"
+ps ax | awk '{print \$1}' | grep -v grep | grep "\$execPid$" && retVal=0
+[ "\$retVal" = 0 ] && echo "\$cmd has been started" || echo "\$cmd has failed to start - args: \$args" >&2
 exit \$retVal
 
 EOF
@@ -453,8 +451,8 @@ EOF
         if [ ! -f "$START_SCRIPT" ]; then
           execute_command="$(__trim "$su_exec $cmd_exec")"
           cat <<EOF >"$START_SCRIPT"
-#!/usr/bin/env sh
-trap 'exitCode=\$?; [ \$retVal -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' ERR
+#!/usr/bin/env bash
+trap 'exitCode=\$?;[ \$exitCode -ne 0 ] && [ -f "\$SERVICE_PID_FILE" ] && rm -Rf "\$SERVICE_PID_FILE";exit \$exitCode' EXIT
 #
 set -Eeo pipefail
 # Setting up $cmd to run as ${SERVICE_USER:-root}
@@ -463,9 +461,10 @@ cmd="$cmd"
 SERVICE_PID_FILE="$SERVICE_PID_FILE"
 $execute_command 2>>"/dev/stderr" >>"$LOG_DIR/$SERVICE_NAME.log" &
 execPid=\$!
-sleep 5
+sleep 10
 [ -n "\$execPid"  ] && echo \$execPid >"\$SERVICE_PID_FILE"
 ps ax | awk '{print \$1}' | grep -v grep | grep \$execPid$ && retVal=0
+[ "\$retVal" = 0 ] && echo "\$cmd has been started" || echo "\$cmd has failed to start - args: \$args" >&2
 exit \$retVal
 
 EOF
@@ -473,7 +472,7 @@ EOF
       fi
     fi
     [ -x "$START_SCRIPT" ] || chmod 755 -Rf "$START_SCRIPT"
-    eval sh -c "$START_SCRIPT"
+    [ "$CONTAINER_INIT" = "yes" ] || eval sh -c "$START_SCRIPT"
     runExitCode=$?
     return $runExitCode
   fi
