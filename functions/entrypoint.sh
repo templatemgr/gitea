@@ -74,9 +74,7 @@ __clean_variables() {
   printf '%s' "$var" | grep -v '^$'
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__no_exit() {
-  [ -f "/run/no_exit.pid" ] || exec /bin/sh -c "trap 'sleep 1;rm -Rf /run/no_exit.pid;exit 0' TERM INT;(while true; do echo $$ >/run/no_exit.pid;tail -qf /data/logs/entrypoint.log /data/logs/*/*log 2>/dev/null||sleep 20; done) & wait"
-}
+__no_exit() { [ -f "/run/no_exit.pid" ] || exec bash -c "trap 'sleep 1;rm -Rf /run/no_exit.pid;exit 0' TERM INT;(while true; do echo $$ >/run/no_exit.pid;tail -qf /data/logs/start.log 2>/dev/null||sleep 20; done) & wait"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __trim() {
   local var="${*//;/ }"
@@ -286,7 +284,7 @@ __cron() {
     eval "$command"
     sleep $interval
     [ -f "/run/cron/$cmd" ] || break
-  done |& tee -p /data/logs/cron.log
+  done 2>/dev/stderr | tee -p /data/logs/cron.log >/dev/null
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __replace() {
@@ -340,7 +338,7 @@ __file_copy() {
       fi
     fi
   else
-    printf '%s\n' "$from does not exist"
+    printf '%s\n' "$from does not exist" >&2
     return 2
   fi
 }
@@ -358,41 +356,39 @@ __generate_random_uids() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __setup_directories() {
+  APPLICATION_DIRS="${APPLICATION_DIRS//,/ }"
+  APPLICATION_FILES="${APPLICATION_FILES//,/ }"
+  ADD_APPLICATION_DIRS="${ADD_APPLICATION_DIRS//,/ }"
+  ADD_APPLICATION_FILES="${ADD_APPLICATION_FILES//,/ }"
   # Setup WWW_ROOT_DIR
   if [ "$IS_WEB_SERVER" = "yes" ]; then
     APPLICATION_DIRS="$APPLICATION_DIRS $WWW_ROOT_DIR"
     __initialize_www_root
-    (echo "Creating directory $WWW_ROOT_DIR with permissions 755" && mkdir -p "$WWW_ROOT_DIR" && find "$WWW_ROOT_DIR" -type d -exec chmod -f 755 {} \;) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    (echo "Creating directory $WWW_ROOT_DIR with permissions 755" && mkdir -p "$WWW_ROOT_DIR" && find "$WWW_ROOT_DIR" -type d -exec chmod -f 755 {} \;) 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt"
   fi
   # Setup DATABASE_DIR
-  if [ "$IS_DATABASE_SERVICE" = "yes" ]; then
+  if [ "$IS_DATABASE_SERVICE" = "yes" ] || [ "$USES_DATABASE_SERVICE" = "yes" ]; then
     APPLICATION_DIRS="$APPLICATION_DIRS $DATABASE_DIR"
     if __is_dir_empty "$DATABASE_DIR" || [ ! -d "$DATABASE_DIR" ]; then
-      (echo "Creating directory $DATABASE_DIR with permissions 777" && mkdir -p "$DATABASE_DIR" && chmod -f 777 "$DATABASE_DIR") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+      (echo "Creating directory $DATABASE_DIR with permissions 777" && mkdir -p "$DATABASE_DIR" && chmod -f 777 "$DATABASE_DIR") 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt"
     fi
   fi
   # create default directories
   for filedirs in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
     if [ -n "$filedirs" ] && [ ! -d "$filedirs" ]; then
-      (
-        echo "Creating directory $filedirs with permissions 777"
-        mkdir -p "$filedirs" && chmod -f 777 "$filedirs"
-      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+      (echo "Creating directory $filedirs with permissions 777" && mkdir -p "$filedirs" && chmod -f 777 "$filedirs") 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt"
     fi
   done
   # create default files
   for application_files in $ADD_APPLICATION_FILES $APPLICATION_FILES; do
     if [ -n "$application_files" ] && [ ! -e "$application_files" ]; then
-      (
-        echo "Creating file $application_files with permissions 777"
-        touch "$application_files" && chmod -Rf 777 "$application_files"
-      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+      (echo "Creating file $application_files with permissions 777" && touch "$application_files" && chmod -Rf 777 "$application_files") 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt"
     fi
   done
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# set user on files/folders
 __fix_permissions() {
-  # set user on files/folders
   change_user="${1:-${SERVICE_USER:-root}}"
   change_group="${2:-${SERVICE_GROUP:-$change_user}}"
   [ -n "$RUNAS_USER" ] && [ "$RUNAS_USER" != "root" ] && change_user="$RUNAS_USER" && change_group="$change_user"
@@ -400,7 +396,7 @@ __fix_permissions() {
     if grep -sq "^$change_user:" "/etc/passwd"; then
       for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
         if [ -n "$permissions" ] && [ -e "$permissions" ]; then
-          (chown -Rf $change_user:$change_group "$permissions" && echo "changed ownership on $permissions to user:$change_user and group:$change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+          (chown -Rf $change_user:$change_group "$permissions" && echo "changed ownership on $permissions to user:$change_user and group:$change_group") 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt"
         fi
       done
     fi
@@ -409,7 +405,7 @@ __fix_permissions() {
     if grep -sq "^$change_group:" "/etc/group"; then
       for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
         if [ -n "$permissions" ] && [ -e "$permissions" ]; then
-          (chgrp -Rf $change_group "$permissions" && echo "changed group ownership on $permissions to group $change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+          (chgrp -Rf $change_group "$permissions" && echo "changed group ownership on $permissions to group $change_group") 2>/dev/stderr | tee -p -a "$LOG_DIR/init.txt"
         fi
       done
     fi
@@ -435,12 +431,10 @@ __set_user_group_id() {
   [ -n "$set_user" ] && [ "$set_user" != "root" ] || return
   if grep -sq "^$set_user:" "/etc/passwd" "/etc/group"; then
     if __check_for_guid "$set_gid"; then
-      groupmod -g "${set_gid}" $set_user 2>/dev/stderr | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null &&
-        chown -Rf ":$set_gid"
+      groupmod -g "${set_gid}" $set_user 2>/dev/stderr | tee -p -a "${LOG_DIR/tmp/}/init.txt" >/dev/null && chown -Rf ":$set_gid"
     fi
     if __check_for_uid "$set_uid"; then
-      usermod -u "${set_uid}" -g "${set_gid}" $set_user 2>/dev/stderr | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null &&
-        chown -Rf $set_uid:$set_gid
+      usermod -u "${set_uid}" -g "${set_gid}" $set_user 2>/dev/stderr | tee -p -a "${LOG_DIR/tmp/}/init.txt" >/dev/null && chown -Rf $set_uid:$set_gid
     fi
   fi
   export SERVICE_UID="$set_uid"
@@ -472,11 +466,11 @@ __create_service_user() {
   done
   if ! __check_for_group "$create_group"; then
     echo "creating system group $create_group"
-    groupadd -g $create_gid $create_group 2>/dev/stderr | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
+    groupadd -g $create_gid $create_group 2>/dev/stderr | tee -p -a "${LOG_DIR/tmp/}/init.txt" >/dev/null
   fi
   if ! __check_for_user "$create_user"; then
     echo "creating system user $create_user"
-    useradd -u $create_uid -g $create_gid -c "Account for $create_user" -d "$create_home_dir" -s /bin/false $create_user 2>/dev/stderr | tee -p -a "$LOG_DIR/tmp/init.txt" &>/dev/null
+    useradd -u $create_uid -g $create_gid -c "Account for $create_user" -d "$create_home_dir" -s /bin/false $create_user 2>/dev/stderr | tee -p -a "$LOG_DIR/tmp/init.txt" >/dev/null
   fi
   grep -qs "$create_group" "/etc/group" || exitStatus=$((exitCode + 1))
   grep -qs "$create_user" "/etc/passwd" || exitStatus=$((exitCode + 1))
@@ -496,7 +490,7 @@ __create_env_file() {
     dir="$(dirname "$create_env")"
     [ -d "$dir" ] || mkdir -p "$dir"
     if [ -n "$create_env" ] && [ ! -f "$create_env" ]; then
-      cat <<EOF | tee -p "$create_env" &>/dev/null
+      cat <<EOF | tee -p "$create_env" >/dev/null
 $(<"$sample_file")
 EOF
     fi
@@ -578,6 +572,7 @@ __start_init_scripts() {
       done
     fi
   fi
+  printf '%s\n' "$SERVICE_NAME started on $(date)" >"/data/logs/start.log"
   return $retstatus
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -599,7 +594,7 @@ __setup_mta() {
     [ -f "/etc/ssmtp/ssmtp.conf" ] && rm -Rf "/etc/ssmtp/ssmtp.conf"
     symlink_files="$(__find_file_relative "/config/ssmtp")"
     if [ ! -f "/config/ssmtp/ssmtp.conf" ]; then
-      cat <<EOF | tee -p "/config/ssmtp/ssmtp.conf" &>/dev/null
+      cat <<EOF | tee -p "/config/ssmtp/ssmtp.conf" >/dev/null
 # ssmtp configuration.
 root=${account_user:-root}@${account_domain:-$HOSTNAME}
 mailhub=${relay_server:-172.17.0.1}:$relay_port
@@ -639,7 +634,7 @@ EOF
     [ -f "/etc/postfix/main.cf" ] && rm -Rf "/etc/postfix/main.cf"
     symlink_files="$(__find_file_relative "/config/postfix")"
     if [ ! -f "/config/postfix/main.cf" ]; then
-      cat <<EOF | tee -p "/config/postfix/main.cf" &>/dev/null
+      cat <<EOF | tee -p "/config/postfix/main.cf" >/dev/null
 # postfix configuration.
 smtpd_banner = \$myhostname ESMTP email server
 compatibility_level = 2
@@ -744,7 +739,7 @@ __initialize_replace_variables() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_database() {
-  [ "$IS_DATABASE_SERVICE" = "yes" ] || return 0
+  [ "$IS_DATABASE_SERVICE" = "yes" ] || [ "$USES_DATABASE_SERVICE" = "yes" ] || return 0
   local dir="${1:-$ETC_DIR}"
   local db_normal_user="${DATABASE_USER_NORMAL:-$user_name}"
   local db_normal_pass="${DATABASE_PASS_NORMAL:-$user_pass}"
@@ -763,7 +758,7 @@ __initialize_database() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_db_users() {
-  [ "$IS_DATABASE_SERVICE" = "yes" ] || return 0
+  [ "$IS_DATABASE_SERVICE" = "yes" ] || [ "$USES_DATABASE_SERVICE" = "yes" ] || return 0
   db_normal_user="${DATABASE_USER_NORMAL:-$user_name}"
   db_normal_pass="${DATABASE_PASS_NORMAL:-$user_pass}"
   db_admin_user="${DATABASE_USER_ROOT:-$root_user_name}"
@@ -922,7 +917,7 @@ __initialize_ssl_certs() {
       [ -d "$SSL_DIR" ] || mkdir -p "$SSL_DIR"
       __create_ssl_cert
     fi
-    type update-ca-certificates &>/dev/null && update-ca-certificates
+    type update-ca-certificates &>/dev/null && update-ca-certificates &>/dev/null
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

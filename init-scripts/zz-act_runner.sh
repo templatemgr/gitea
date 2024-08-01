@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407281545-git
+##@Version           :  202408011024-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  LICENSE.md
 # @@ReadME           :  zz-act_runner.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Sunday, Jul 28, 2024 15:45 EDT
+# @@Created          :  Thursday, Aug 01, 2024 10:24 EDT
 # @@File             :  zz-act_runner.sh
 # @@Description      :
 # @@Changelog        :  New script
@@ -64,57 +64,56 @@ __run_pre_execute_checks() {
 
   # Put command to execute in parentheses
   {
-    {
-      __banner "running pre execution for act_runner"
-      if [ ! -f "$CONF_DIR/.runner" ]; then
-        sleep 120
-      fi
-      SYS_AUTH_TOKEN="$(sudo -u gitea gitea --config /config/gitea/app.ini actions generate-runner-token 2>/dev/null | grep -v '\.\.\.')"
-      if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
-        cat <<EOF >"$CONF_DIR/reg/default.reg"
+    __banner "running pre execution for act_runner"
+    if [ ! -f "$CONF_DIR/.runner" ]; then
+      sleep 120
+    fi
+    SYS_AUTH_TOKEN="$(sudo -u gitea gitea --config /config/gitea/app.ini actions generate-runner-token 2>/dev/null | grep -v '\.\.\.')"
+    if [ ! -f "$CONF_DIR/reg/default.reg" ]; then
+      cat <<EOF >"$CONF_DIR/reg/default.reg"
 # Settings for the default gitea runner
 RUNNER_NAME="gitea"
 RUNNER_HOSTNAME="http://127.0.0.1:8000"
 RUNNER_AUTH_TOKEN="${RUNNER_AUTH_TOKEN:-$SYS_AUTH_TOKEN}"
 RUNNER_LABELS="$RUNNER_LABELS"
 EOF
-      fi
-      if [ ! -f "$CONF_DIR/runners" ]; then
-        for runner in "$CONF_DIR/reg"/*.reg; do
-          exitStatus=0
-          RUNNER_NAME="$(basename "${runner//.reg/}")"
-          while :; do
-            [ -f "$runner" ] && . "$runner"
-            [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
-            if [ -z "$RUNNER_AUTH_TOKEN" ]; then
-              [ -f "$CONF_DIR/tokens/system" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/system")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/system"
-              [ -f "$CONF_DIR/tokens/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/$RUNNER_NAME"
-              chmod -Rf 600 "$CONF_DIR/tokens/system" "$CONF_DIR/tokens/$RUNNER_NAME" 2>/dev/null
-              chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
-              echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
-              echo "Then edit $runner or set in $CONF_DIR/tokens/$RUNNER_NAME" >&2
-              sleep 120
+    fi
+    if [ ! -f "$CONF_DIR/runners" ]; then
+      for runner in "$CONF_DIR/reg"/*.reg; do
+        exitStatus=0
+        RUNNER_NAME="$(basename "${runner//.reg/}")"
+        while :; do
+          [ -f "$runner" ] && . "$runner"
+          [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && break
+          if [ -z "$RUNNER_AUTH_TOKEN" ]; then
+            [ -f "$CONF_DIR/tokens/system" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/system")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/system"
+            [ -f "$CONF_DIR/tokens/$RUNNER_NAME" ] && RUNNER_AUTH_TOKEN="$(<"$CONF_DIR/tokens/$RUNNER_NAME")" || echo "$SYS_AUTH_TOKEN" >"$CONF_DIR/tokens/$RUNNER_NAME"
+            chmod -Rf 600 "$CONF_DIR/tokens/system" "$CONF_DIR/tokens/$RUNNER_NAME" 2>/dev/null
+            chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR" "$DATA_DIR" 2>/dev/null
+            echo "Error: RUNNER_AUTH_TOKEN is not set - visit $RUNNER_HOSTNAME/admin/actions/runners" >&2
+            echo "Then edit $runner or set in $CONF_DIR/tokens/$RUNNER_NAME" >&2
+            sleep 120
+          else
+            echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
+            act_runner register --config "$CONF_DIR/daemon.yaml" --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$CONTAINER_IP4_ADDRESS:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
+            echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+            if [ $exitStatus -eq 0 ]; then
+              exitStatus=0
+              chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR"
+              break
             else
-              echo "RUNNER_AUTH_TOKEN has been set: trying to register $RUNNER_NAME"
-              act_runner register --config "$CONF_DIR/daemon.yaml" --labels "$RUNNER_LABELS" --name "$RUNNER_NAME" --instance "http://$CONTAINER_IP4_ADDRESS:8000" --token "$RUNNER_AUTH_TOKEN" --no-interactive && exitStatus=0 || exitStatus=1
-              echo "$!" >"$RUN_DIR/act_runner.$RUNNER_NAME.pid"
-              if [ $exitStatus -eq 0 ]; then
-                exitStatus=0
-                chown -Rf "$SERVICE_USER":"$SERVICE_GROUP" "$CONF_DIR" "$ETC_DIR"
-                break
-              else
-                [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
-                exitStatus=1
-                sleep 20
-              fi
+              [ -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid" ] && rm -f "$RUN_DIR/act_runner.$RUNNER_NAME.pid"
+              exitStatus=1
+              sleep 20
             fi
-          done
-        done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
-      fi
-      echo "$$" >"$RUN_DIR/act_runner.pid"
-      echo "$(date)" >"$CONF_DIR/.runner"
-      __banner "pre execution for act_runner has completed"
-    }
+          fi
+        done
+      done 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
+    fi
+    echo "$$" >"$RUN_DIR/act_runner.pid"
+    echo "$(date)" >"$CONF_DIR/.runner"
+    __banner "pre execution for act_runner has completed"
+
   } && exitStatus=0 || exitStatus=5
   if [ $exitStatus -ne 0 ]; then
     echo "The pre-execution check has failed" >&2
@@ -133,11 +132,9 @@ START_SCRIPT="/usr/local/etc/docker/exec/$SERVICE_NAME"
 # Reset environment before executing service
 RESET_ENV="yes"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Show message before execute
-PRE_EXEC_MESSAGE=""
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set the database root dir
 DATABASE_BASE_DIR="${DATABASE_BASE_DIR:-/data/db}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # set the database directory
 DATABASE_DIR="${DATABASE_DIR_ACT_RUNNER:-/data/db/sqlite}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -151,24 +148,15 @@ CONF_DIR="/config/act_runner" # set config directory
 # set the containers etc directory
 ETC_DIR="/etc/act_runner"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TMP_DIR="/tmp/act_runner"
+# set the var dir
+VAR_DIR=""
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+TMP_DIR="/tmp/act_runner"       # set the temp dir
 RUN_DIR="/run/act_runner"       # set scripts pid dir
 LOG_DIR="/data/logs/act_runner" # set log directory
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set the working dir
-WORK_DIR="" # set working directory
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Where to save passwords to
-ROOT_FILE_PREFIX="/config/secure/auth/root" # directory to save username/password for root user
-USER_FILE_PREFIX="/config/secure/auth/user" # directory to save username/password for normal user
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# root/admin user info password/random]
-root_user_name="${ACT_RUNNER_ROOT_USER_NAME:-}" # root user name
-root_user_pass="${ACT_RUNNER_ROOT_PASS_WORD:-}" # root user password
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Normal user info [password/random]
-user_name="${ACT_RUNNER_USER_NAME:-}"      # normal user name
-user_pass="${ACT_RUNNER_USER_PASS_WORD:-}" # normal user password
+WORK_DIR=""
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # port which service is listening on
 SERVICE_PORT="44015"
@@ -195,8 +183,26 @@ IS_WEB_SERVER="no"
 # Is this service a database server
 IS_DATABASE_SERVICE="no"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Does this service use a database server
+USES_DATABASE_SERVICE="no"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Show message before execute
+PRE_EXEC_MESSAGE=""
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Update path var
-PATH="./bin:$PATH"
+PATH="$PATH:."
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Where to save passwords to
+ROOT_FILE_PREFIX="/config/secure/auth/root" # directory to save username/password for root user
+USER_FILE_PREFIX="/config/secure/auth/user" # directory to save username/password for normal user
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# root/admin user info password/random]
+root_user_name="${ACT_RUNNER_ROOT_USER_NAME:-}" # root user name
+root_user_pass="${ACT_RUNNER_ROOT_PASS_WORD:-}" # root user password
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Normal user info [password/random]
+user_name="${ACT_RUNNER_USER_NAME:-}"      # normal user name
+user_pass="${ACT_RUNNER_USER_PASS_WORD:-}" # normal user password
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Load variables from config
 [ -f "/config/env/act_runner.script.sh" ] && . "/config/env/act_runner.script.sh" # Generated by my dockermgr script
@@ -251,19 +257,19 @@ RUNNER_LABELS+=",ubuntu-latest:docker://catthehacker/ubuntu:full-latest"
 __update_conf_files() {
   local exitCode=0                                               # default exit code
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
-
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # CD into temp to bybass any permission errors
   cd /tmp || false # lets keep shellcheck happy by adding false
-
-  # delete files
-  #__rm ""
-
-  # execute if directory is empty
-  #__is_dir_empty "" && true || false
-
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Create base directories
   __setup_directories
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # delete files
+  #__rm ""
+
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # custom commands
+
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Initialize templates
   if [ ! -d "$CONF_DIR" ] || __is_dir_empty "$CONF_DIR"; then
@@ -275,18 +281,17 @@ __update_conf_files() {
     fi
   fi
   [ -d "/usr/local/etc/docker/exec" ] || mkdir -p "/usr/local/etc/docker/exec"
-
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # replace variables
-  # __replace "" "" "$CONF_DIR/act_runner.conf"
+  # __replace "" "" "$CONF_DIR/GEN_SCRIPT_REPLACE_APPNAME.conf"
   # replace variables recursively
   #  __find_replace "" "" "$CONF_DIR"
 
-  # custom commands
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # define actions
   [ -d "$CONF_DIR/reg" ] || mkdir -p "$CONF_DIR/reg"
   [ -d "$DATA_DIR/cache" ] || mkdir -p "$DATA_DIR/cache"
   [ -d "$CONF_DIR/tokens" ] || mkdir -p "$CONF_DIR/tokens"
-
-  # define actions
 
   # exit function
   return $exitCode
@@ -313,7 +318,7 @@ __pre_execute() {
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Copy /config to /etc
   for config_2_etc in $CONF_DIR $ADDITIONAL_CONFIG_DIRS; do
-    __initialize_system_etc "$config_2_etc" |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    __initialize_system_etc "$config_2_etc" |& tee -p -a "$LOG_DIR/init.txt"
   done
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Replace variables
@@ -343,22 +348,22 @@ __post_execute() {
     {
       act_runner cache-server --config $CONF_DIR/daemon.yaml -s 0.0.0.0 -p $SERVICE_PORT 2>>/dev/stderr | tee -a -p "$LOG_DIR/act_runner_cache.log" &
       execPid=$!
-      sleep 5 && ps ax | awk '{print \$1}' | grep -v grep | grep \$execPid$ && return 0 || return 2
+      sleep 5 && ps ax | awk '{print $1}' | grep -v grep | grep "$execPid$" && return 0 || return 2
     }
     # set exitCode
     retVal=$?
     # show exit message
     __banner "$postMessageEnd: Status $retVal"
-  ) 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
+  ) 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" &
   return
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # use this function to update config files - IE: change port
 __pre_message() {
   local exitCode=0
-  [ -n "$user_name" ] && echo "username:               $user_name" && echo "$user_name" >"${USER_FILE_PREFIX}/${SERVICE_NAME}_name"
+  [ -n "$user_name" ] && __printf_space "40" "username:" "$user_name" && echo "$user_name" >"${USER_FILE_PREFIX}/${SERVICE_NAME}_name"
   [ -n "$user_pass" ] && __printf_space "40" "password:" "saved to ${USER_FILE_PREFIX}/${SERVICE_NAME}_pass" && echo "$user_pass" >"${USER_FILE_PREFIX}/${SERVICE_NAME}_pass"
-  [ -n "$root_user_name" ] && echo "root username:     $root_user_name" && echo "$root_user_name" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name"
+  [ -n "$root_user_name" ] && __printf_space "40" "root username:" "$root_user_name" && echo "$root_user_name" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_name"
   [ -n "$root_user_pass" ] && __printf_space "40" "root password:" "saved to ${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass" && echo "$root_user_pass" >"${ROOT_FILE_PREFIX}/${SERVICE_NAME}_pass"
   [ -n "$PRE_EXEC_MESSAGE" ] && eval echo "$PRE_EXEC_MESSAGE"
   # execute commands
@@ -412,10 +417,10 @@ __run_start_script() {
   local sysname="${SERVER_NAME:-${FULL_DOMAIN_NAME:-$HOSTNAME}}" # set hostname
   [ -f "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh" ] && . "$CONF_DIR/$SERVICE_NAME.exec_cmd.sh"
   #
-  __run_pre_execute_checks 2>/dev/stderr | tee -a -p "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" >/dev/null || return 20
+  __run_pre_execute_checks 2>/dev/stderr | tee -a -p "/data/logs/entrypoint.log" "$LOG_DIR/init.txt" || return 20
   #
   if [ -z "$cmd" ]; then
-    __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null
+    __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt"
     retVal=$?
     echo "Initializing $SCRIPT_NAME has completed"
     exit $retVal
@@ -459,7 +464,7 @@ __run_start_script() {
       [ -n "$su_exec" ] && echo "using $su_exec" | tee -a -p "$LOG_DIR/init.txt"
       echo "$message" | tee -a -p "$LOG_DIR/init.txt"
       su_cmd touch "$SERVICE_PID_FILE"
-      __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" >/dev/null &
+      __post_execute 2>"/dev/stderr" | tee -p -a "$LOG_DIR/init.txt" &
       if [ "$RESET_ENV" = "yes" ]; then
         env_command="$(echo "env -i HOME=\"$home\" LC_CTYPE=\"$lc_type\" PATH=\"$path\" HOSTNAME=\"$sysname\" USER=\"${SERVICE_USER:-$RUNAS_USER}\" $extra_env")"
         execute_command="$(__trim "$su_exec $env_command $cmd_exec")"
@@ -522,7 +527,7 @@ __run_secure_function() {
         chmod -Rf 600 "$filesperms"
         chown -Rf $SERVICE_USER:$SERVICE_USER "$filesperms"
       fi
-    done |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    done |& tee -p -a "$LOG_DIR/init.txt"
   fi
   if [ -n "$root_user_name" ] || [ -n "$root_user_pass" ]; then
     for filesperms in "${ROOT_FILE_PREFIX}"/*; do
@@ -530,7 +535,7 @@ __run_secure_function() {
         chmod -Rf 600 "$filesperms"
         chown -Rf $SERVICE_USER:$SERVICE_USER "$filesperms"
       fi
-    done |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    done |& tee -p -a "$LOG_DIR/init.txt"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -576,7 +581,7 @@ EXEC_PRE_SCRIPT="$(type -P "$EXEC_PRE_SCRIPT" || echo "$EXEC_PRE_SCRIPT")" # set
 [ -n "$SERVICE_GROUP" ] || SERVICE_GROUP="${RUNAS_USER:-root}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Database env
-if [ "$IS_DATABASE_SERVICE" = "yes" ]; then
+if [ "$IS_DATABASE_SERVICE" = "yes" ] || [ "$USES_DATABASE_SERVICE" = "yes" ]; then
   RESET_ENV="no"
   DATABASE_CREATE="${ENV_DATABASE_CREATE:-$DATABASE_CREATE}"
   DATABASE_USER="${ENV_DATABASE_USER:-${DATABASE_USER:-$user_name}}"
@@ -662,7 +667,7 @@ __run_secure_function
 # run the pre execute commands
 __pre_execute
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__run_start_script 2>>/dev/stderr | tee -p -a "/data/logs/entrypoint.log" >/dev/null && errorCode=0 || errorCode=10
+__run_start_script 2>>/dev/stderr | tee -p -a "/data/logs/entrypoint.log" && errorCode=0 || errorCode=10
 if [ -n "$EXEC_CMD_BIN" ]; then
   if [ "$errorCode" -ne 0 ]; then
     echo "Failed to execute: ${cmd_exec:-$EXEC_CMD_BIN $EXEC_CMD_ARGS}" | tee -p -a "/data/logs/entrypoint.log" "$LOG_DIR/init.txt"

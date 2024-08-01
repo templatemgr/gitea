@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202407271346-git
+##@Version           :  202408011023-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  WTFPL
 # @@ReadME           :  entrypoint.sh --help
 # @@Copyright        :  Copyright: (c) 2024 Jason Hempstead, Casjays Developments
-# @@Created          :  Saturday, Jul 27, 2024 13:46 EDT
+# @@Created          :  Thursday, Aug 01, 2024 10:23 EDT
 # @@File             :  entrypoint.sh
 # @@Description      :  Entrypoint file for gitea
 # @@Changelog        :  New script
@@ -69,7 +69,7 @@ SERVICE_GROUP="" # Set the service group
 WEB_SERVER_PORT="80" # port : 80,443
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Secondary ports
-SERVER_PORTS="" # specifiy other ports
+SERVER_PORTS="2375" # specifiy other ports
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Server directories
 WWW_ROOT_DIR="" # set default web dir
@@ -185,6 +185,7 @@ mkdir -p "/config/enable"
 mkdir -p "/config/secure"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # create required files
+touch "/data/logs/start.log"
 touch "/data/logs/entrypoint.log"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # fix permissions
@@ -196,12 +197,11 @@ chmod -f 777 "/var/tmp"
 chmod -f 777 "/run/cron"
 chmod -f 777 "/data/logs"
 chmod -f 777 "/run/init.d"
-chmod -f 666 "/dev/stderr"
-chmod -f 666 "/dev/stdout"
 chmod -f 777 "/config/enable"
 chmod -f 777 "/config/secure"
 chmod -f 777 "/data/logs/entrypoint.log"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# lets ensure everyone can write to std*
 [ -f "/dev/stdin" ] && chmod -f 777 "/dev/stdin"
 [ -f "/dev/stderr" ] && chmod -f 777 "/dev/stderr"
 [ -f "/dev/stdout" ] && chmod -f 777 "/dev/stdout"
