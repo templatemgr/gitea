@@ -73,7 +73,7 @@ DATABASE_BASE_DIR="${DATABASE_BASE_DIR:-/data/db}"
 DATABASE_DIR="${DATABASE_DIR_ACT_RUNNER:-/data/db/sqlite}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set webroot
-WWW_ROOT_DIR="/usr/share/httpd/default"
+WWW_ROOT_DIR="/usr/local/share/httpd/default"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Default predefined variables
 DATA_DIR="/data/act_runner"   # set data directory

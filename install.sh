@@ -57,7 +57,7 @@ OVER_WRITE_INIT="yes"
 TMP_DIR="/tmp/config-$TEMPLATE_NAME"
 CONFIG_DIR="/usr/local/share/template-files/config"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-WWW_ROOT_DIR="${WWW_ROOT_DIR:-/usr/share/httpd/default}"
+WWW_ROOT_DIR="${WWW_ROOT_DIR:-/usr/local/share/httpd/default}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 INIT_DIR="/usr/local/etc/docker/init.d"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

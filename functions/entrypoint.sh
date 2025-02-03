@@ -178,7 +178,7 @@ __certbot() {
     done
     if [ -n "$ADD_CERTBOT_DOMAINS" ]; then
       certbot $options --agree-tos -m $CERT_BOT_MAIL certonly \
-        --webroot "${WWW_ROOT_DIR:-/usr/share/httpd/default}" \
+        --webroot "${WWW_ROOT_DIR:-/usr/local/share/httpd/default}" \
         --key-path "$SSL_KEY" --fullchain-path "$SSL_CERT" \
         $ADD_CERTBOT_DOMAINS
       statusCode=$?
@@ -746,9 +746,9 @@ EOF
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_web_health() {
-  local www_dir="${1:-${WWW_ROOT_DIR:-/usr/share/httpd/default}}"
+  local www_dir="${1:-${WWW_ROOT_DIR:-/usr/local/share/httpd/default}}"
   [ $# -eq 1 ] && [ -d "$www_dir" ] || return 1
-  if ! echo "$www_dir" | grep -q '/usr/share/httpd'; then
+  if ! echo "$www_dir" | grep -q '/usr/local/share/httpd'; then
     [ -d "$www_dir/health" ] || mkdir -p "$www_dir/health"
     [ -f "$www_dir/health/index.txt" ] || echo 'OK' >"$www_dir/health/index.txt"
     [ -f "$www_dir/health/index.json" ] || echo '{ "status": "OK" }' >"$www_dir/health/index.json"
@@ -756,10 +756,10 @@ __initialize_web_health() {
     __find_replace "REPLACE_COPYRIGHT_FOOTER" "${COPYRIGHT_FOOTER:-Copyright 1999 - $(date +'%Y')}" "$www_dir"
     __find_replace "REPLACE_LAST_UPDATED_ON_MESSAGE" "${LAST_UPDATED_ON_MESSAGE:-$(date +'Last updated on: %Y-%m-%d at %H:%M:%S')}" "$www_dir"
   fi
-  if [ -d "/usr/share/httpd" ]; then
-    __find_replace "REPLACE_CONTAINER_IP4" "${REPLACE_CONTAINER_IP4:-127.0.0.1}" "/usr/share/httpd"
-    __find_replace "REPLACE_COPYRIGHT_FOOTER" "${COPYRIGHT_FOOTER:-Copyright 1999 - $(date +'%Y')}" "/usr/share/httpd"
-    __find_replace "REPLACE_LAST_UPDATED_ON_MESSAGE" "${LAST_UPDATED_ON_MESSAGE:-$(date +'Last updated on: %Y-%m-%d at %H:%M:%S')}" "/usr/share/httpd"
+  if [ -d "/usr/local/share/httpd" ]; then
+    __find_replace "REPLACE_CONTAINER_IP4" "${REPLACE_CONTAINER_IP4:-127.0.0.1}" "/usr/local/share/httpd"
+    __find_replace "REPLACE_COPYRIGHT_FOOTER" "${COPYRIGHT_FOOTER:-Copyright 1999 - $(date +'%Y')}" "/usr/local/share/httpd"
+    __find_replace "REPLACE_LAST_UPDATED_ON_MESSAGE" "${LAST_UPDATED_ON_MESSAGE:-$(date +'Last updated on: %Y-%m-%d at %H:%M:%S')}" "/usr/local/share/httpd"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -794,7 +794,7 @@ __initialize_replace_variables() {
     [ -n "$SERVICE_PORT" ] && __find_replace "REPLACE_SERVER_PORT" "${SERVICE_PORT:-80}" "$set_dir"
     [ -n "$HOSTNAME" ] && __find_replace "REPLACE_SERVER_NAME" "${FULL_DOMAIN_NAME:-$HOSTNAME}" "$set_dir"
     [ -n "$CONTAINER_NAME" ] && __find_replace "REPLACE_SERVER_SOFTWARE" "${CONTAINER_NAME:-docker}" "$set_dir"
-    [ -n "$WWW_ROOT_DIR" ] && __find_replace "REPLACE_SERVER_WWW_DIR" "${WWW_ROOT_DIR:-/usr/share/httpd/default}" "$set_dir"
+    [ -n "$WWW_ROOT_DIR" ] && __find_replace "REPLACE_SERVER_WWW_DIR" "${WWW_ROOT_DIR:-/usr/local/share/httpd/default}" "$set_dir"
   done
   mkdir -p "${TMP_DIR:-/tmp/$SERVICE_NAME}" "${RUN_DIR:-/run/$SERVICE_NAME}" "${LOG_DIR:-/data/log/$SERVICE_NAME}"
   chmod -f 777 "${TMP_DIR:-/tmp/$SERVICE_NAME}" "${RUN_DIR:-/run/$SERVICE_NAME}" "${LOG_DIR:-/data/log/$SERVICE_NAME}"
@@ -935,7 +935,7 @@ __initialize_data_dir() {
 __initialize_www_root() {
   local WWW_INIT=""
   local WWW_TEMPLATE=""
-  [ -d "/usr/share/httpd/default" ] && WWW_TEMPLATE="/usr/share/httpd/default"
+  [ -d "/usr/local/share/httpd/default" ] && WWW_TEMPLATE="/usr/local/share/httpd/default"
   [ "$WWW_ROOT_DIR" = "/app" ] && WWW_INIT="${WWW_INIT:-true}"
   [ "$WWW_ROOT_DIR" = "/data/htdocs" ] && WWW_INIT="${WWW_INIT:-true}"
   __is_dir_empty "$WWW_ROOT_DIR/" && WWW_INIT="true" || WWW_INIT="false"
@@ -961,7 +961,7 @@ __is_htdocs_mounted() {
     export WWW_ROOT_DIR="/data/wwwroot"
   else
     WWW_ROOT_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"
-    export WWW_ROOT_DIR="${WWW_ROOT_DIR:-/usr/share/httpd/default}"
+    export WWW_ROOT_DIR="${WWW_ROOT_DIR:-/usr/local/share/httpd/default}"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -985,11 +985,11 @@ __initialize_ssl_certs() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __start_php_dev_server() {
   if [ "$2" = "yes" ]; then
-    if [ -d "/usr/share/httpd" ]; then
-      find "/usr/share/httpd" -type f -not -path '.git*' -iname '*.php' -exec sed -i 's|[<].*SERVER_ADDR.*[>]|'${CONTAINER_IP4_ADDRESS:-127.0.0.1}'|g' {} \; 2>/dev/null
-      php -S 0.0.0.0:$PHP_DEV_SERVER_PORT -t "/usr/share/httpd"
+    if [ -d "/usr/local/share/httpd" ]; then
+      find "/usr/local/share/httpd" -type f -not -path '.git*' -iname '*.php' -exec sed -i 's|[<].*SERVER_ADDR.*[>]|'${CONTAINER_IP4_ADDRESS:-127.0.0.1}'|g' {} \; 2>/dev/null
+      php -S 0.0.0.0:$PHP_DEV_SERVER_PORT -t "/usr/local/share/httpd"
     fi
-    if ! echo "$1" | grep -q "^/usr/share/httpd"; then
+    if ! echo "$1" | grep -q "^/usr/local/share/httpd"; then
       find "$1" -type f -not -path '.git*' -iname '*.php' -exec sed -i 's|[<].*SERVER_ADDR.*[>]|'${CONTAINER_IP4_ADDRESS:-127.0.0.1}'|g' {} \; 2>/dev/null
       php -S 0.0.0.0:$PHP_DEV_SERVER_PORT -t "$1"
     fi
